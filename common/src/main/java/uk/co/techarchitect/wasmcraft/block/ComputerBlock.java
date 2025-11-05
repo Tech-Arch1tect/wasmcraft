@@ -36,6 +36,7 @@ public class ComputerBlock extends Block implements EntityBlock {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof ComputerBlockEntity computerBlockEntity) {
                 MenuRegistry.openExtendedMenu(serverPlayer, computerBlockEntity);
+                level.getServer().execute(() -> computerBlockEntity.syncToPlayer(serverPlayer));
             }
         }
         return InteractionResult.SUCCESS;

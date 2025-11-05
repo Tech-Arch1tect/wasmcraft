@@ -1,10 +1,13 @@
 package uk.co.techarchitect.wasmcraft.client.screen;
 
+import dev.architectury.networking.NetworkManager;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
+import uk.co.techarchitect.wasmcraft.network.ComputerCommandPacket;
 
 import java.util.List;
 
@@ -13,8 +16,10 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
     private static final int TEXT_COLOR = 0xFFE0E0E0;
     private static final int LINE_HEIGHT = 10;
     private static final int PADDING = 5;
+    private static final int INPUT_HEIGHT = 20;
 
     private int scrollOffset = 0;
+    private EditBox inputField;
 
     public ComputerScreen(ComputerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
@@ -22,6 +27,20 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
         this.imageHeight = 200;
         this.inventoryLabelY = 10000;
         this.titleLabelY = 10000;
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+
+        int inputY = this.topPos + this.imageHeight - INPUT_HEIGHT - PADDING;
+        inputField = new EditBox(this.font, this.leftPos + PADDING, inputY,
+                                 this.imageWidth - PADDING * 2, INPUT_HEIGHT, Component.literal(""));
+        inputField.setMaxLength(256);
+        inputField.setBordered(false);
+        inputField.setTextColor(TEXT_COLOR);
+        addRenderableWidget(inputField);
+        setInitialFocus(inputField);
     }
 
     @Override
@@ -35,7 +54,8 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
 
         List<String> history = this.menu.getOutputHistory();
 
-        int maxVisibleLines = (this.imageHeight - PADDING * 2) / LINE_HEIGHT;
+        int outputAreaHeight = this.imageHeight - INPUT_HEIGHT - PADDING * 3;
+        int maxVisibleLines = outputAreaHeight / LINE_HEIGHT;
         int startLine = Math.max(0, history.size() - maxVisibleLines - scrollOffset);
         int endLine = Math.min(history.size(), startLine + maxVisibleLines);
 
@@ -50,10 +70,41 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         List<String> history = this.menu.getOutputHistory();
-        int maxVisibleLines = (this.imageHeight - PADDING * 2) / LINE_HEIGHT;
+        int outputAreaHeight = this.imageHeight - INPUT_HEIGHT - PADDING * 3;
+        int maxVisibleLines = outputAreaHeight / LINE_HEIGHT;
         int maxScroll = Math.max(0, history.size() - maxVisibleLines);
 
         scrollOffset = Math.max(0, Math.min(maxScroll, scrollOffset - (int) scrollY));
         return true;
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (inputField.isFocused()) {
+            if (keyCode == 257 || keyCode == 335) {
+                String command = inputField.getValue().trim();
+                if (!command.isEmpty()) {
+                    sendCommand(command);
+                    inputField.setValue("");
+                }
+                return true;
+            }
+            if (inputField.keyPressed(keyCode, scanCode, modifiers)) {
+                return true;
+            }
+        }
+
+        if (keyCode == 256) {
+            this.onClose();
+            return true;
+        }
+
+        return false;
+    }
+
+    private void sendCommand(String command) {
+        if (menu.getBlockEntity() != null) {
+            NetworkManager.sendToServer(new ComputerCommandPacket(menu.getBlockEntity().getBlockPos(), command));
+        }
     }
 }

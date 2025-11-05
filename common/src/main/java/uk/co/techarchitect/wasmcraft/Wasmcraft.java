@@ -5,6 +5,7 @@ import uk.co.techarchitect.wasmcraft.blockentity.ModBlockEntities;
 import uk.co.techarchitect.wasmcraft.item.ModCreativeTabs;
 import uk.co.techarchitect.wasmcraft.item.ModItems;
 import uk.co.techarchitect.wasmcraft.menu.ModMenuTypes;
+import uk.co.techarchitect.wasmcraft.network.ModNetworking;
 
 public final class Wasmcraft {
     public static final String MOD_ID = "wasmcraft";
@@ -15,5 +16,6 @@ public final class Wasmcraft {
         ModBlockEntities.register();
         ModMenuTypes.register();
         ModCreativeTabs.register();
+        ModNetworking.register();
     }
 }

@@ -1,5 +1,6 @@
 package uk.co.techarchitect.wasmcraft.blockentity;
 
+import dev.architectury.networking.NetworkManager;
 import dev.architectury.registry.menu.ExtendedMenuProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -17,6 +18,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
+import uk.co.techarchitect.wasmcraft.network.ComputerOutputSyncPacket;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +33,33 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
     public List<String> getOutputHistory() {
         return new ArrayList<>(outputHistory);
+    }
+
+    public void executeCommand(String command) {
+        outputHistory.add("> " + command);
+
+        String[] parts = command.toLowerCase().trim().split("\\s+");
+        String cmd = parts[0];
+
+        switch (cmd) {
+            case "help" -> {
+                outputHistory.add("Available commands:");
+                outputHistory.add("  help  - Show this help message");
+                outputHistory.add("  clear - Clear the terminal");
+            }
+            case "clear" -> {
+                outputHistory.clear();
+            }
+            default -> {
+                outputHistory.add("Unknown command: " + cmd);
+                outputHistory.add("Type 'help' for available commands");
+            }
+        }
+
+        setChanged();
+        if (level != null && !level.isClientSide) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
     }
 
     @Override
@@ -78,5 +107,9 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
     @Override
     public void saveExtraData(FriendlyByteBuf buf) {
         buf.writeBlockPos(this.worldPosition);
+    }
+
+    public void syncToPlayer(ServerPlayer player) {
+        NetworkManager.sendToPlayer(player, new ComputerOutputSyncPacket(worldPosition, getOutputHistory()));
     }
 }

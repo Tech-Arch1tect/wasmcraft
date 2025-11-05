@@ -17,6 +17,9 @@ public class ComputerMenu extends AbstractContainerMenu {
     public ComputerMenu(int containerId, Inventory playerInventory, ComputerBlockEntity blockEntity) {
         super(ModMenuTypes.COMPUTER_MENU.get(), containerId);
         this.blockEntity = blockEntity;
+        if (blockEntity != null) {
+            this.clientOutputHistory = new ArrayList<>(blockEntity.getOutputHistory());
+        }
     }
 
     public ComputerMenu(int containerId, Inventory playerInventory, BlockPos pos) {
@@ -38,9 +41,6 @@ public class ComputerMenu extends AbstractContainerMenu {
     }
 
     public List<String> getOutputHistory() {
-        if (blockEntity != null) {
-            return blockEntity.getOutputHistory();
-        }
         return clientOutputHistory;
     }
 
