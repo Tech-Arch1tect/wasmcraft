@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
 import uk.co.techarchitect.wasmcraft.network.ComputerOutputSyncPacket;
+import uk.co.techarchitect.wasmcraft.wasm.WasmExecutor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,11 +45,35 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         switch (cmd) {
             case "help" -> {
                 outputHistory.add("Available commands:");
-                outputHistory.add("  help  - Show this help message");
-                outputHistory.add("  clear - Clear the terminal");
+                outputHistory.add("  help        - Show this help message");
+                outputHistory.add("  clear       - Clear the terminal");
+                outputHistory.add("  run <file>  - Execute WASM file");
             }
             case "clear" -> {
                 outputHistory.clear();
+            }
+            case "run" -> {
+                if (parts.length < 2) {
+                    outputHistory.add("Usage: run <filename>");
+                    outputHistory.add("Example: run hello.wasm");
+                } else {
+                    String filename = parts[1];
+                    if (!filename.endsWith(".wasm")) {
+                        filename = filename + ".wasm";
+                    }
+
+                    String resourcePath = "/wasm/" + filename;
+                    outputHistory.add("Executing " + filename + "...");
+
+                    WasmExecutor.ExecutionResult result = WasmExecutor.executeFromResource(resourcePath);
+                    if (result.isSuccess()) {
+                        for (String line : result.getOutput().split("\n")) {
+                            outputHistory.add(line);
+                        }
+                    } else {
+                        outputHistory.add("ERROR: " + result.getError());
+                    }
+                }
             }
             default -> {
                 outputHistory.add("Unknown command: " + cmd);

@@ -1,0 +1,164 @@
+package uk.co.techarchitect.wasmcraft.wasm;
+
+import com.dylibso.chicory.wasi.WasiOptions;
+import com.dylibso.chicory.wasi.WasiPreview1;
+import com.dylibso.chicory.runtime.Store;
+import com.dylibso.chicory.wasm.Parser;
+import com.mojang.logging.LogUtils;
+import org.slf4j.Logger;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.concurrent.*;
+
+public class WasmExecutor {
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final long DEFAULT_TIMEOUT_MS = 5000;
+    private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool();
+
+    public static ExecutionResult execute(byte[] wasmBytes) {
+        return execute(wasmBytes, DEFAULT_TIMEOUT_MS);
+    }
+
+    public static ExecutionResult execute(byte[] wasmBytes, long timeoutMs) {
+        Future<ExecutionResult> future = EXECUTOR.submit(() -> executeInternal(wasmBytes));
+
+        try {
+            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            LOGGER.error("WASM execution timed out after {}ms", timeoutMs);
+            return ExecutionResult.error("Execution timed out after " + timeoutMs + "ms");
+        } catch (InterruptedException | ExecutionException e) {
+            LOGGER.error("WASM execution failed", e);
+            return ExecutionResult.error("Execution failed: " + e.getMessage());
+        }
+    }
+
+    public static ExecutionResult executeFromResource(String resourcePath) {
+        try (InputStream is = WasmExecutor.class.getResourceAsStream(resourcePath)) {
+            if (is == null) {
+                LOGGER.error("WASM resource not found: {}", resourcePath);
+                return ExecutionResult.error("Resource not found: " + resourcePath);
+            }
+            byte[] wasmBytes = is.readAllBytes();
+            return execute(wasmBytes);
+        } catch (IOException e) {
+            LOGGER.error("Failed to load WASM resource: {}", resourcePath, e);
+            return ExecutionResult.error("Failed to load resource: " + e.getMessage());
+        }
+    }
+
+    private static ExecutionResult executeInternal(byte[] wasmBytes) {
+        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+
+        try {
+            LOGGER.info("Parsing WASM module ({} bytes)", wasmBytes.length);
+            var wasiOptions = WasiOptions.builder()
+                .withStdout(stdout)
+                .withStderr(stderr)
+                .build();
+
+            var wasi = WasiPreview1.builder()
+                .withOptions(wasiOptions)
+                .build();
+
+            var store = new Store()
+                .addFunction(wasi.toHostFunctions());
+
+            LOGGER.info("Instantiating WASM module with WASI support");
+
+            store.instantiate("wasm-module", Parser.parse(wasmBytes));
+
+            LOGGER.info("WASM execution completed successfully");
+
+            String output = stdout.toString();
+            String errors = stderr.toString();
+            StringBuilder result = new StringBuilder();
+            if (!output.isEmpty()) {
+                result.append(output);
+            }
+            if (!errors.isEmpty()) {
+                if (result.length() > 0) {
+                    result.append("\n");
+                }
+                result.append("STDERR: ").append(errors);
+            }
+
+            if (result.length() == 0) {
+                result.append("Execution completed (no output)");
+            }
+
+            return ExecutionResult.success(result.toString());
+
+        } catch (com.dylibso.chicory.wasi.WasiExitException e) {
+            if (e.exitCode() == 0) {
+                LOGGER.info("WASM execution completed with exit code 0");
+                String outputStr = stdout.toString();
+                String errorStr = stderr.toString();
+
+                StringBuilder result = new StringBuilder();
+                if (!outputStr.isEmpty()) {
+                    result.append(outputStr);
+                }
+                if (!errorStr.isEmpty()) {
+                    if (result.length() > 0) {
+                        result.append("\n");
+                    }
+                    result.append("STDERR: ").append(errorStr);
+                }
+
+                if (result.length() == 0) {
+                    result.append("Execution completed (no output)");
+                }
+
+                return ExecutionResult.success(result.toString());
+            } else {
+                LOGGER.error("WASM execution exited with code: {}", e.exitCode());
+                return ExecutionResult.error("Process exited with code: " + e.exitCode());
+            }
+        } catch (Exception e) {
+            LOGGER.error("WASM execution error", e);
+            return ExecutionResult.error("Execution error: " + e.getMessage());
+        }
+    }
+
+    public static class ExecutionResult {
+        private final boolean success;
+        private final String output;
+        private final String error;
+
+        private ExecutionResult(boolean success, String output, String error) {
+            this.success = success;
+            this.output = output;
+            this.error = error;
+        }
+
+        public static ExecutionResult success(String output) {
+            return new ExecutionResult(true, output, null);
+        }
+
+        public static ExecutionResult error(String error) {
+            return new ExecutionResult(false, null, error);
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public String getOutput() {
+            return output;
+        }
+
+        public String getError() {
+            return error;
+        }
+
+        @Override
+        public String toString() {
+            return success ? "Success: " + output : "Error: " + error;
+        }
+    }
+}

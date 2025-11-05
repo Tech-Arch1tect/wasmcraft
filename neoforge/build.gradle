@@ -38,6 +38,11 @@ dependencies {
 
     common(project(path: ':common', configuration: 'namedElements')) { transitive false }
     shadowBundle project(path: ':common', configuration: 'transformProductionNeoForge')
+
+    implementation 'com.dylibso.chicory:runtime:1.5.3'
+    implementation 'com.dylibso.chicory:wasi:1.5.3'
+    shadowBundle 'com.dylibso.chicory:runtime:1.5.3'
+    shadowBundle 'com.dylibso.chicory:wasi:1.5.3'
 }
 
 processResources {
