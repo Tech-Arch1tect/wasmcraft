@@ -1,5 +1,6 @@
 package uk.co.techarchitect.wasmcraft.block;
 
+import dev.architectury.registry.menu.MenuRegistry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
@@ -34,7 +35,7 @@ public class ComputerBlock extends Block implements EntityBlock {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof ComputerBlockEntity computerBlockEntity) {
-                serverPlayer.openMenu(computerBlockEntity);
+                MenuRegistry.openExtendedMenu(serverPlayer, computerBlockEntity);
             }
         }
         return InteractionResult.SUCCESS;
