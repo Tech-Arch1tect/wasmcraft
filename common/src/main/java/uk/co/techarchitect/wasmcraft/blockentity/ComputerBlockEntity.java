@@ -22,6 +22,10 @@ import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
 import uk.co.techarchitect.wasmcraft.network.ComputerOutputSyncPacket;
 import uk.co.techarchitect.wasmcraft.wasm.WasmExecutor;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,11 +53,12 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         switch (cmd) {
             case "help" -> {
                 outputHistory.add("Available commands:");
-                outputHistory.add("  help        - Show this help message");
-                outputHistory.add("  clear       - Clear the terminal");
-                outputHistory.add("  ls          - List files in storage");
-                outputHistory.add("  rm <file>   - Delete file from storage");
-                outputHistory.add("  run <file>  - Execute WASM file");
+                outputHistory.add("  help            - Show this help message");
+                outputHistory.add("  clear           - Clear the terminal");
+                outputHistory.add("  ls              - List files in storage");
+                outputHistory.add("  rm <file>       - Delete file from storage");
+                outputHistory.add("  download <url>  - Download WASM from URL");
+                outputHistory.add("  run <file>      - Execute WASM file");
             }
             case "clear" -> {
                 outputHistory.clear();
@@ -87,6 +92,43 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
                     }
                 }
             }
+            case "download" -> {
+                if (parts.length < 2) {
+                    outputHistory.add("Usage: download <url>");
+                    outputHistory.add("Example: download https://example.com/program.wasm");
+                } else {
+                    String originalCommand = command.trim();
+                    int urlStart = originalCommand.toLowerCase().indexOf("download") + "download".length();
+                    String url = originalCommand.substring(urlStart).trim();
+
+                    String filename;
+                    try {
+                        String path = url.substring(url.lastIndexOf('/') + 1);
+                        if (path.isEmpty() || !path.contains(".")) {
+                            outputHistory.add("ERROR: Invalid URL - cannot determine filename");
+                            break;
+                        }
+                        filename = path;
+                        if (!filename.endsWith(".wasm")) {
+                            filename = filename + ".wasm";
+                        }
+                    } catch (Exception e) {
+                        outputHistory.add("ERROR: Invalid URL format");
+                        break;
+                    }
+
+                    outputHistory.add("Downloading from " + url + "...");
+
+                    try {
+                        byte[] data = downloadFile(url);
+                        fileSystem.put(filename, data);
+                        outputHistory.add("Downloaded " + filename + " (" + data.length + " bytes)");
+                        setChanged();
+                    } catch (Exception e) {
+                        outputHistory.add("ERROR: " + e.getMessage());
+                    }
+                }
+            }
             case "run" -> {
                 if (parts.length < 2) {
                     outputHistory.add("Usage: run <filename>");
@@ -97,10 +139,18 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
                         filename = filename + ".wasm";
                     }
 
-                    String resourcePath = "/wasm/" + filename;
                     outputHistory.add("Executing " + filename + "...");
 
-                    WasmExecutor.ExecutionResult result = WasmExecutor.executeFromResource(resourcePath);
+                    WasmExecutor.ExecutionResult result;
+
+                    if (fileSystem.containsKey(filename)) {
+                        byte[] wasmBytes = fileSystem.get(filename);
+                        result = WasmExecutor.execute(wasmBytes);
+                    } else {
+                        String resourcePath = "/wasm/" + filename;
+                        result = WasmExecutor.executeFromResource(resourcePath);
+                    }
+
                     if (result.isSuccess()) {
                         for (String line : result.getOutput().split("\n")) {
                             outputHistory.add(line);
@@ -182,5 +232,30 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
     public void syncToPlayer(ServerPlayer player) {
         NetworkManager.sendToPlayer(player, new ComputerOutputSyncPacket(worldPosition, getOutputHistory()));
+    }
+
+    private byte[] downloadFile(String urlString) throws IOException {
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(10000);
+        connection.setReadTimeout(10000);
+        connection.setRequestProperty("User-Agent", "Wasmcraft/1.0");
+
+        int responseCode = connection.getResponseCode();
+        if (responseCode != HttpURLConnection.HTTP_OK) {
+            throw new IOException("HTTP " + responseCode + ": " + connection.getResponseMessage());
+        }
+
+        int contentLength = connection.getContentLength();
+        if (contentLength > 10 * 1024 * 1024) {
+            throw new IOException("File too large (max 10MB)");
+        }
+
+        try (InputStream in = connection.getInputStream()) {
+            return in.readAllBytes();
+        } finally {
+            connection.disconnect();
+        }
     }
 }
