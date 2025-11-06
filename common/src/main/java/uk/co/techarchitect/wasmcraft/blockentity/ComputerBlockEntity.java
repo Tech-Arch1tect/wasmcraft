@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 
 public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProvider, RedstoneContext {
+    private static final int MAX_HISTORY_LINES = 100;
+
     private final List<String> outputHistory = new ArrayList<>();
     private final Map<String, byte[]> fileSystem = new HashMap<>();
     private final int[] redstoneOutputs = new int[6];
@@ -41,7 +43,14 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
     public ComputerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.COMPUTER_BLOCK_ENTITY.get(), pos, state);
-        outputHistory.add("Computer initialized. Type 'help' for commands.");
+        addOutputLine("Computer initialized. Type 'help' for commands.");
+    }
+
+    private void addOutputLine(String line) {
+        outputHistory.add(line);
+        while (outputHistory.size() > MAX_HISTORY_LINES) {
+            outputHistory.remove(0);
+        }
     }
 
     private Direction relativeToWorldDirection(int relativeSide) {
@@ -105,39 +114,39 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
     }
 
     public void executeCommand(String command) {
-        outputHistory.add("> " + command);
+        addOutputLine("> " + command);
 
         String[] parts = command.toLowerCase().trim().split("\\s+");
         String cmd = parts[0];
 
         switch (cmd) {
             case "help" -> {
-                outputHistory.add("Available commands:");
-                outputHistory.add("  help            - Show this help message");
-                outputHistory.add("  clear           - Clear the terminal");
-                outputHistory.add("  ls              - List files in storage");
-                outputHistory.add("  rm <file>       - Delete file from storage");
-                outputHistory.add("  download <url>  - Download WASM from URL");
-                outputHistory.add("  run <file>      - Execute WASM file");
+                addOutputLine("Available commands:");
+                addOutputLine("  help            - Show this help message");
+                addOutputLine("  clear           - Clear the terminal");
+                addOutputLine("  ls              - List files in storage");
+                addOutputLine("  rm <file>       - Delete file from storage");
+                addOutputLine("  download <url>  - Download WASM from URL");
+                addOutputLine("  run <file>      - Execute WASM file");
             }
             case "clear" -> {
                 outputHistory.clear();
             }
             case "ls" -> {
                 if (fileSystem.isEmpty()) {
-                    outputHistory.add("No files stored");
+                    addOutputLine("No files stored");
                 } else {
-                    outputHistory.add("Files:");
+                    addOutputLine("Files:");
                     for (Map.Entry<String, byte[]> entry : fileSystem.entrySet()) {
                         String name = entry.getKey();
                         int size = entry.getValue().length;
-                        outputHistory.add(String.format("  %-20s %6d bytes", name, size));
+                        addOutputLine(String.format("  %-20s %6d bytes", name, size));
                     }
                 }
             }
             case "rm" -> {
                 if (parts.length < 2) {
-                    outputHistory.add("Usage: rm <filename>");
+                    addOutputLine("Usage: rm <filename>");
                 } else {
                     String filename = parts[1];
                     if (!filename.endsWith(".wasm")) {
@@ -146,16 +155,16 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
                     if (fileSystem.containsKey(filename)) {
                         fileSystem.remove(filename);
-                        outputHistory.add("Deleted " + filename);
+                        addOutputLine("Deleted " + filename);
                     } else {
-                        outputHistory.add("File not found: " + filename);
+                        addOutputLine("File not found: " + filename);
                     }
                 }
             }
             case "download" -> {
                 if (parts.length < 2) {
-                    outputHistory.add("Usage: download <url>");
-                    outputHistory.add("Example: download https://example.com/program.wasm");
+                    addOutputLine("Usage: download <url>");
+                    addOutputLine("Example: download https://example.com/program.wasm");
                 } else {
                     String originalCommand = command.trim();
                     int urlStart = originalCommand.toLowerCase().indexOf("download") + "download".length();
@@ -165,7 +174,7 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
                     try {
                         String path = url.substring(url.lastIndexOf('/') + 1);
                         if (path.isEmpty() || !path.contains(".")) {
-                            outputHistory.add("ERROR: Invalid URL - cannot determine filename");
+                            addOutputLine("ERROR: Invalid URL - cannot determine filename");
                             break;
                         }
                         filename = path;
@@ -173,33 +182,33 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
                             filename = filename + ".wasm";
                         }
                     } catch (Exception e) {
-                        outputHistory.add("ERROR: Invalid URL format");
+                        addOutputLine("ERROR: Invalid URL format");
                         break;
                     }
 
-                    outputHistory.add("Downloading from " + url + "...");
+                    addOutputLine("Downloading from " + url + "...");
 
                     try {
                         byte[] data = downloadFile(url);
                         fileSystem.put(filename, data);
-                        outputHistory.add("Downloaded " + filename + " (" + data.length + " bytes)");
+                        addOutputLine("Downloaded " + filename + " (" + data.length + " bytes)");
                         setChanged();
                     } catch (Exception e) {
-                        outputHistory.add("ERROR: " + e.getMessage());
+                        addOutputLine("ERROR: " + e.getMessage());
                     }
                 }
             }
             case "run" -> {
                 if (parts.length < 2) {
-                    outputHistory.add("Usage: run <filename>");
-                    outputHistory.add("Example: run hello.wasm");
+                    addOutputLine("Usage: run <filename>");
+                    addOutputLine("Example: run hello.wasm");
                 } else {
                     String filename = parts[1];
                     if (!filename.endsWith(".wasm")) {
                         filename = filename + ".wasm";
                     }
 
-                    outputHistory.add("Executing " + filename + "...");
+                    addOutputLine("Executing " + filename + "...");
 
                     updateRedstoneInputs();
 
@@ -215,16 +224,16 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
                     if (result.isSuccess()) {
                         for (String line : result.getOutput().split("\n")) {
-                            outputHistory.add(line);
+                            addOutputLine(line);
                         }
                     } else {
-                        outputHistory.add("ERROR: " + result.getError());
+                        addOutputLine("ERROR: " + result.getError());
                     }
                 }
             }
             default -> {
-                outputHistory.add("Unknown command: " + cmd);
-                outputHistory.add("Type 'help' for available commands");
+                addOutputLine("Unknown command: " + cmd);
+                addOutputLine("Type 'help' for available commands");
             }
         }
 
@@ -259,7 +268,7 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         if (tag.contains("OutputHistory", Tag.TAG_LIST)) {
             ListTag historyList = tag.getList("OutputHistory", Tag.TAG_STRING);
             for (int i = 0; i < historyList.size(); i++) {
-                outputHistory.add(historyList.getString(i));
+                addOutputLine(historyList.getString(i));
             }
         }
 
