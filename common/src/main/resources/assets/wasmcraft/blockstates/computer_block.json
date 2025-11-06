@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "wasmcraft:block/computer_block"
+    },
+    "facing=south": {
+      "model": "wasmcraft:block/computer_block",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "wasmcraft:block/computer_block",
+      "y": 270
+    },
+    "facing=east": {
+      "model": "wasmcraft:block/computer_block",
+      "y": 90
+    }
+  }
+}
