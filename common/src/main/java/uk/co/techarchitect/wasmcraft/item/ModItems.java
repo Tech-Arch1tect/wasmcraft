@@ -14,6 +14,9 @@ public class ModItems {
     public static final RegistrySupplier<Item> COMPUTER_BLOCK = ITEMS.register("computer_block",
             () -> new BlockItem(ModBlocks.COMPUTER_BLOCK.get(), new Item.Properties()));
 
+    public static final RegistrySupplier<Item> MONITOR_BLOCK = ITEMS.register("monitor_block",
+            () -> new BlockItem(ModBlocks.MONITOR_BLOCK.get(), new Item.Properties()));
+
     public static void register() {
         ITEMS.register();
     }

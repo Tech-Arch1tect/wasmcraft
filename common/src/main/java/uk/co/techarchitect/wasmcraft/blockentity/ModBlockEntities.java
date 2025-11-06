@@ -15,6 +15,10 @@ public class ModBlockEntities {
             BLOCK_ENTITIES.register("computer_block_entity", () ->
                     BlockEntityType.Builder.of(ComputerBlockEntity::new, ModBlocks.COMPUTER_BLOCK.get()).build(null));
 
+    public static final RegistrySupplier<BlockEntityType<MonitorBlockEntity>> MONITOR_BLOCK_ENTITY =
+            BLOCK_ENTITIES.register("monitor_block_entity", () ->
+                    BlockEntityType.Builder.of(MonitorBlockEntity::new, ModBlocks.MONITOR_BLOCK.get()).build(null));
+
     public static void register() {
         BLOCK_ENTITIES.register();
     }

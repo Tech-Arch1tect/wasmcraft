@@ -10,6 +10,7 @@ public class ModBlocks {
     public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(Wasmcraft.MOD_ID, Registries.BLOCK);
 
     public static final RegistrySupplier<Block> COMPUTER_BLOCK = BLOCKS.register("computer_block", ComputerBlock::new);
+    public static final RegistrySupplier<Block> MONITOR_BLOCK = BLOCKS.register("monitor_block", MonitorBlock::new);
 
     public static void register() {
         BLOCKS.register();

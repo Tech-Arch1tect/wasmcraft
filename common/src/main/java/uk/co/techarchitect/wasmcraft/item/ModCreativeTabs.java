@@ -18,6 +18,7 @@ public class ModCreativeTabs {
                     .icon(() -> new ItemStack(ModItems.COMPUTER_BLOCK.get()))
                     .displayItems((context, entries) -> {
                         entries.accept(ModItems.COMPUTER_BLOCK.get());
+                        entries.accept(ModItems.MONITOR_BLOCK.get());
                     })
             ));
 
