@@ -43,6 +43,9 @@ dependencies {
     implementation 'com.dylibso.chicory:wasi:1.5.3'
     shadowBundle 'com.dylibso.chicory:runtime:1.5.3'
     shadowBundle 'com.dylibso.chicory:wasi:1.5.3'
+
+    developmentNeoForge 'com.dylibso.chicory:runtime:1.5.3'
+    developmentNeoForge 'com.dylibso.chicory:wasi:1.5.3'
 }
 
 processResources {

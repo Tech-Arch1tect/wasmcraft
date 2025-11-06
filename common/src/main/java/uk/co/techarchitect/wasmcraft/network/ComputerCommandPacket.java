@@ -12,6 +12,7 @@ import uk.co.techarchitect.wasmcraft.Wasmcraft;
 import uk.co.techarchitect.wasmcraft.blockentity.ComputerBlockEntity;
 
 public record ComputerCommandPacket(BlockPos pos, String command) implements CustomPacketPayload {
+
     public static final CustomPacketPayload.Type<ComputerCommandPacket> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Wasmcraft.MOD_ID, "computer_command"));
 
@@ -33,8 +34,9 @@ public record ComputerCommandPacket(BlockPos pos, String command) implements Cus
             if (context.getPlayer() instanceof ServerPlayer serverPlayer) {
                 if (serverPlayer.level().getBlockEntity(packet.pos) instanceof ComputerBlockEntity computerBlockEntity) {
                     computerBlockEntity.executeCommand(packet.command);
+                    var history = computerBlockEntity.getOutputHistory();
                     NetworkManager.sendToPlayer(serverPlayer,
-                            new ComputerOutputSyncPacket(packet.pos, computerBlockEntity.getOutputHistory()));
+                            new ComputerOutputSyncPacket(packet.pos, history));
                 }
             }
         });

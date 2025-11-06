@@ -4,6 +4,7 @@ import dev.architectury.networking.NetworkManager;
 import dev.architectury.registry.menu.ExtendedMenuProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.ByteArrayTag;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
@@ -22,10 +23,13 @@ import uk.co.techarchitect.wasmcraft.network.ComputerOutputSyncPacket;
 import uk.co.techarchitect.wasmcraft.wasm.WasmExecutor;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProvider {
     private final List<String> outputHistory = new ArrayList<>();
+    private final Map<String, byte[]> fileSystem = new HashMap<>();
 
     public ComputerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.COMPUTER_BLOCK_ENTITY.get(), pos, state);
@@ -47,10 +51,41 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
                 outputHistory.add("Available commands:");
                 outputHistory.add("  help        - Show this help message");
                 outputHistory.add("  clear       - Clear the terminal");
+                outputHistory.add("  ls          - List files in storage");
+                outputHistory.add("  rm <file>   - Delete file from storage");
                 outputHistory.add("  run <file>  - Execute WASM file");
             }
             case "clear" -> {
                 outputHistory.clear();
+            }
+            case "ls" -> {
+                if (fileSystem.isEmpty()) {
+                    outputHistory.add("No files stored");
+                } else {
+                    outputHistory.add("Files:");
+                    for (Map.Entry<String, byte[]> entry : fileSystem.entrySet()) {
+                        String name = entry.getKey();
+                        int size = entry.getValue().length;
+                        outputHistory.add(String.format("  %-20s %6d bytes", name, size));
+                    }
+                }
+            }
+            case "rm" -> {
+                if (parts.length < 2) {
+                    outputHistory.add("Usage: rm <filename>");
+                } else {
+                    String filename = parts[1];
+                    if (!filename.endsWith(".wasm")) {
+                        filename = filename + ".wasm";
+                    }
+
+                    if (fileSystem.containsKey(filename)) {
+                        fileSystem.remove(filename);
+                        outputHistory.add("Deleted " + filename);
+                    } else {
+                        outputHistory.add("File not found: " + filename);
+                    }
+                }
             }
             case "run" -> {
                 if (parts.length < 2) {
@@ -82,9 +117,6 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         }
 
         setChanged();
-        if (level != null && !level.isClientSide) {
-            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-        }
     }
 
     @Override
@@ -96,6 +128,12 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
             historyList.add(StringTag.valueOf(line));
         }
         tag.put("OutputHistory", historyList);
+
+        CompoundTag filesTag = new CompoundTag();
+        for (Map.Entry<String, byte[]> entry : fileSystem.entrySet()) {
+            filesTag.putByteArray(entry.getKey(), entry.getValue());
+        }
+        tag.put("FileSystem", filesTag);
     }
 
     @Override
@@ -107,6 +145,14 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
             ListTag historyList = tag.getList("OutputHistory", Tag.TAG_STRING);
             for (int i = 0; i < historyList.size(); i++) {
                 outputHistory.add(historyList.getString(i));
+            }
+        }
+
+        fileSystem.clear();
+        if (tag.contains("FileSystem", Tag.TAG_COMPOUND)) {
+            CompoundTag filesTag = tag.getCompound("FileSystem");
+            for (String key : filesTag.getAllKeys()) {
+                fileSystem.put(key, filesTag.getByteArray(key));
             }
         }
     }

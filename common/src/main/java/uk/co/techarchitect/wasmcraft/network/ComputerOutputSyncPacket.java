@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public record ComputerOutputSyncPacket(BlockPos pos, List<String> output) implements CustomPacketPayload {
+
     public static final CustomPacketPayload.Type<ComputerOutputSyncPacket> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Wasmcraft.MOD_ID, "computer_output_sync"));
 
@@ -43,10 +44,12 @@ public record ComputerOutputSyncPacket(BlockPos pos, List<String> output) implem
 
     public static void handle(ComputerOutputSyncPacket packet, NetworkManager.PacketContext context) {
         context.queue(() -> {
-            var player = context.getPlayer();
-            if (player != null && player.containerMenu instanceof ComputerMenu menu) {
-                menu.setClientOutputHistory(packet.output);
-            }
+            Minecraft.getInstance().execute(() -> {
+                var player = Minecraft.getInstance().player;
+                if (player != null && player.containerMenu instanceof ComputerMenu menu) {
+                    menu.setClientOutputHistory(packet.output);
+                }
+            });
         });
     }
 }
