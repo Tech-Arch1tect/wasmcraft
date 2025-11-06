@@ -7,7 +7,7 @@ import java.util.UUID;
 public interface Peripheral {
     UUID getId();
 
-    String getType();
+    String getPeripheralType();
 
     String getLabel();
 
