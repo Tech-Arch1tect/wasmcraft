@@ -21,7 +21,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
 import uk.co.techarchitect.wasmcraft.network.ComputerOutputSyncPacket;
+import uk.co.techarchitect.wasmcraft.peripheral.Peripheral;
+import uk.co.techarchitect.wasmcraft.peripheral.PeripheralManager;
 import uk.co.techarchitect.wasmcraft.wasm.WasmExecutor;
+import uk.co.techarchitect.wasmcraft.wasm.context.PeripheralContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.RedstoneContext;
 
 import java.io.IOException;
@@ -32,14 +35,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
-public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProvider, RedstoneContext {
+public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProvider, RedstoneContext, PeripheralContext {
     private static final int MAX_HISTORY_LINES = 100;
+    private static final double PERIPHERAL_RANGE = 16.0;
 
     private final List<String> outputHistory = new ArrayList<>();
     private final Map<String, byte[]> fileSystem = new HashMap<>();
     private final int[] redstoneOutputs = new int[6];
     private final int[] redstoneInputs = new int[6];
+    private final Map<String, UUID> connectedPeripherals = new HashMap<>();
+    private UUID owner;
 
     public ComputerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.COMPUTER_BLOCK_ENTITY.get(), pos, state);
@@ -77,6 +84,23 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         return redstoneInputs[worldDir.get3DDataValue()];
     }
 
+    public void setOwner(UUID owner) {
+        this.owner = owner;
+        setChanged();
+    }
+
+    @Override
+    public com.dylibso.chicory.runtime.HostFunction[] toHostFunctions() {
+        com.dylibso.chicory.runtime.HostFunction[] redstone = RedstoneContext.super.toHostFunctions();
+        com.dylibso.chicory.runtime.HostFunction[] peripheral = PeripheralContext.super.toHostFunctions();
+
+        com.dylibso.chicory.runtime.HostFunction[] combined = new com.dylibso.chicory.runtime.HostFunction[redstone.length + peripheral.length];
+        System.arraycopy(redstone, 0, combined, 0, redstone.length);
+        System.arraycopy(peripheral, 0, combined, redstone.length, peripheral.length);
+
+        return combined;
+    }
+
     public void updateRedstoneInputs() {
         if (level == null || level.isClientSide) return;
 
@@ -107,6 +131,61 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
             return redstoneOutputs[index];
         }
         return 0;
+    }
+
+    @Override
+    public String listPeripherals() {
+        if (owner == null || level == null || level.isClientSide) {
+            return "[]";
+        }
+
+        List<Peripheral> peripherals = PeripheralManager.getInstance()
+                .findInRange(worldPosition, PERIPHERAL_RANGE, owner);
+
+        StringBuilder json = new StringBuilder("[");
+        for (int i = 0; i < peripherals.size(); i++) {
+            if (i > 0) json.append(",");
+            Peripheral p = peripherals.get(i);
+            json.append("{");
+            json.append("\"type\":\"").append(p.getPeripheralType()).append("\",");
+            json.append("\"label\":\"").append(p.getLabel()).append("\"");
+            json.append("}");
+        }
+        json.append("]");
+
+        return json.toString();
+    }
+
+    @Override
+    public String connectPeripheral(String label) {
+        if (owner == null || level == null || level.isClientSide) {
+            return "ERROR: Not initialized";
+        }
+
+        if (connectedPeripherals.containsKey(label)) {
+            return "ERROR: Already connected to " + label;
+        }
+
+        Peripheral peripheral = PeripheralManager.getInstance().findByLabel(label, owner);
+        if (peripheral == null) {
+            return "ERROR: Peripheral not found: " + label;
+        }
+
+        double distance = Math.sqrt(worldPosition.distSqr(peripheral.getPosition()));
+        if (distance > PERIPHERAL_RANGE) {
+            return "ERROR: Peripheral out of range";
+        }
+
+        connectedPeripherals.put(label, peripheral.getId());
+        setChanged();
+
+        return "Connected to " + label + " (" + peripheral.getPeripheralType() + ")";
+    }
+
+    @Override
+    public void disconnectPeripheral(String peripheralId) {
+        connectedPeripherals.entrySet().removeIf(entry -> entry.getValue().toString().equals(peripheralId));
+        setChanged();
     }
 
     public List<String> getOutputHistory() {
@@ -258,6 +337,16 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
         tag.putIntArray("RedstoneOutputs", redstoneOutputs);
         tag.putIntArray("RedstoneInputs", redstoneInputs);
+
+        if (owner != null) {
+            tag.putUUID("Owner", owner);
+        }
+
+        CompoundTag peripheralsTag = new CompoundTag();
+        for (Map.Entry<String, UUID> entry : connectedPeripherals.entrySet()) {
+            peripheralsTag.putUUID(entry.getKey(), entry.getValue());
+        }
+        tag.put("ConnectedPeripherals", peripheralsTag);
     }
 
     @Override
@@ -288,6 +377,18 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         if (tag.contains("RedstoneInputs", Tag.TAG_INT_ARRAY)) {
             int[] loaded = tag.getIntArray("RedstoneInputs");
             System.arraycopy(loaded, 0, redstoneInputs, 0, Math.min(loaded.length, redstoneInputs.length));
+        }
+
+        if (tag.hasUUID("Owner")) {
+            this.owner = tag.getUUID("Owner");
+        }
+
+        connectedPeripherals.clear();
+        if (tag.contains("ConnectedPeripherals", Tag.TAG_COMPOUND)) {
+            CompoundTag peripheralsTag = tag.getCompound("ConnectedPeripherals");
+            for (String key : peripheralsTag.getAllKeys()) {
+                connectedPeripherals.put(key, peripheralsTag.getUUID(key));
+            }
         }
     }
 
