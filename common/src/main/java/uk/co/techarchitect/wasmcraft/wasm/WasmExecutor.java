@@ -1,8 +1,8 @@
 package uk.co.techarchitect.wasmcraft.wasm;
 
+import com.dylibso.chicory.runtime.Store;
 import com.dylibso.chicory.wasi.WasiOptions;
 import com.dylibso.chicory.wasi.WasiPreview1;
-import com.dylibso.chicory.runtime.Store;
 import com.dylibso.chicory.wasm.Parser;
 import com.mojang.logging.LogUtils;
 import org.slf4j.Logger;
@@ -21,8 +21,16 @@ public class WasmExecutor {
         return execute(wasmBytes, DEFAULT_TIMEOUT_MS);
     }
 
+    public static ExecutionResult execute(byte[] wasmBytes, WasmContext context) {
+        return execute(wasmBytes, DEFAULT_TIMEOUT_MS, context);
+    }
+
     public static ExecutionResult execute(byte[] wasmBytes, long timeoutMs) {
-        Future<ExecutionResult> future = EXECUTOR.submit(() -> executeInternal(wasmBytes));
+        return execute(wasmBytes, timeoutMs, null);
+    }
+
+    public static ExecutionResult execute(byte[] wasmBytes, long timeoutMs, WasmContext context) {
+        Future<ExecutionResult> future = EXECUTOR.submit(() -> executeInternal(wasmBytes, context));
 
         try {
             return future.get(timeoutMs, TimeUnit.MILLISECONDS);
@@ -50,7 +58,7 @@ public class WasmExecutor {
         }
     }
 
-    private static ExecutionResult executeInternal(byte[] wasmBytes) {
+    private static ExecutionResult executeInternal(byte[] wasmBytes, WasmContext context) {
         ByteArrayOutputStream stdout = new ByteArrayOutputStream();
         ByteArrayOutputStream stderr = new ByteArrayOutputStream();
 
@@ -67,6 +75,10 @@ public class WasmExecutor {
 
             var store = new Store()
                 .addFunction(wasi.toHostFunctions());
+
+            if (context != null) {
+                store.addFunction(context.toHostFunctions());
+            }
 
             LOGGER.info("Instantiating WASM module with WASI support");
 

@@ -3,6 +3,7 @@ package uk.co.techarchitect.wasmcraft.blockentity;
 import dev.architectury.networking.NetworkManager;
 import dev.architectury.registry.menu.ExtendedMenuProvider;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.ByteArrayTag;
 import net.minecraft.nbt.CompoundTag;
@@ -21,6 +22,7 @@ import org.jetbrains.annotations.Nullable;
 import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
 import uk.co.techarchitect.wasmcraft.network.ComputerOutputSyncPacket;
 import uk.co.techarchitect.wasmcraft.wasm.WasmExecutor;
+import uk.co.techarchitect.wasmcraft.wasm.context.RedstoneContext;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,13 +33,71 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProvider {
+public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProvider, RedstoneContext {
     private final List<String> outputHistory = new ArrayList<>();
     private final Map<String, byte[]> fileSystem = new HashMap<>();
+    private final int[] redstoneOutputs = new int[6];
+    private final int[] redstoneInputs = new int[6];
 
     public ComputerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.COMPUTER_BLOCK_ENTITY.get(), pos, state);
         outputHistory.add("Computer initialized. Type 'help' for commands.");
+    }
+
+    private Direction relativeToWorldDirection(int relativeSide) {
+        if (level == null) return Direction.NORTH;
+        Direction facing = getBlockState().getValue(uk.co.techarchitect.wasmcraft.block.ComputerBlock.FACING);
+
+        return switch (relativeSide) {
+            case 0 -> Direction.DOWN;
+            case 1 -> Direction.UP;
+            case 2 -> facing;
+            case 3 -> facing.getOpposite();
+            case 4 -> facing.getClockWise();
+            case 5 -> facing.getCounterClockWise();
+            default -> Direction.NORTH;
+        };
+    }
+
+    @Override
+    public int getRedstoneInput(int relativeSide) {
+        if (relativeSide < 0 || relativeSide > 5) {
+            return 0;
+        }
+        Direction worldDir = relativeToWorldDirection(relativeSide);
+        return redstoneInputs[worldDir.get3DDataValue()];
+    }
+
+    public void updateRedstoneInputs() {
+        if (level == null || level.isClientSide) return;
+
+        for (Direction direction : Direction.values()) {
+            int index = direction.get3DDataValue();
+            redstoneInputs[index] = level.getSignal(worldPosition.relative(direction), direction);
+        }
+    }
+
+    @Override
+    public void setRedstoneOutput(int relativeSide, int power) {
+        if (relativeSide >= 0 && relativeSide <= 5) {
+            Direction worldDir = relativeToWorldDirection(relativeSide);
+            int worldIndex = worldDir.get3DDataValue();
+            redstoneOutputs[worldIndex] = Math.max(0, Math.min(15, power));
+            if (level != null && !level.isClientSide) {
+                level.getServer().execute(() -> {
+                    level.updateNeighborsAt(worldPosition, getBlockState().getBlock());
+                    setChanged();
+                });
+            }
+        }
+    }
+
+    public int getRedstoneOutput(Direction worldDirection) {
+        int index = worldDirection.get3DDataValue();
+        if (index >= 0 && index < 6) {
+            return redstoneOutputs[index];
+        }
+        return 0;
     }
 
     public List<String> getOutputHistory() {
@@ -141,11 +201,13 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
                     outputHistory.add("Executing " + filename + "...");
 
+                    updateRedstoneInputs();
+
                     WasmExecutor.ExecutionResult result;
 
                     if (fileSystem.containsKey(filename)) {
                         byte[] wasmBytes = fileSystem.get(filename);
-                        result = WasmExecutor.execute(wasmBytes);
+                        result = WasmExecutor.execute(wasmBytes, this);
                     } else {
                         String resourcePath = "/wasm/" + filename;
                         result = WasmExecutor.executeFromResource(resourcePath);
@@ -184,6 +246,9 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
             filesTag.putByteArray(entry.getKey(), entry.getValue());
         }
         tag.put("FileSystem", filesTag);
+
+        tag.putIntArray("RedstoneOutputs", redstoneOutputs);
+        tag.putIntArray("RedstoneInputs", redstoneInputs);
     }
 
     @Override
@@ -204,6 +269,16 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
             for (String key : filesTag.getAllKeys()) {
                 fileSystem.put(key, filesTag.getByteArray(key));
             }
+        }
+
+        if (tag.contains("RedstoneOutputs", Tag.TAG_INT_ARRAY)) {
+            int[] loaded = tag.getIntArray("RedstoneOutputs");
+            System.arraycopy(loaded, 0, redstoneOutputs, 0, Math.min(loaded.length, redstoneOutputs.length));
+        }
+
+        if (tag.contains("RedstoneInputs", Tag.TAG_INT_ARRAY)) {
+            int[] loaded = tag.getIntArray("RedstoneInputs");
+            System.arraycopy(loaded, 0, redstoneInputs, 0, Math.min(loaded.length, redstoneInputs.length));
         }
     }
 
