@@ -50,6 +50,7 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
     private final int[] redstoneOutputs = new int[6];
     private final int[] redstoneInputs = new int[6];
     private final Map<String, UUID> connectedPeripherals = new HashMap<>();
+    private final List<ServerPlayer> activeViewers = new ArrayList<>();
     private UUID owner;
     private WasmExecutor.ExecutionHandle activeExecution;
 
@@ -279,17 +280,34 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
     public void tick() {
         if (activeExecution != null) {
+            List<String> stdoutLines = activeExecution.getStdout().pollLines();
+            List<String> stderrLines = activeExecution.getStderr().pollLines();
+
+            boolean hasOutput = false;
+
+            for (String line : stdoutLines) {
+                addOutputLine(line);
+                hasOutput = true;
+            }
+
+            for (String line : stderrLines) {
+                addOutputLine("STDERR: " + line);
+                hasOutput = true;
+            }
+
             WasmExecutor.ExecutionResult result = activeExecution.getResultIfDone();
             if (result != null) {
-                if (result.isSuccess()) {
-                    for (String line : result.getOutput().split("\n")) {
-                        addOutputLine(line);
-                    }
-                } else {
+                if (!result.isSuccess()) {
                     addOutputLine("ERROR: " + result.getError());
+                    hasOutput = true;
                 }
                 activeExecution = null;
+                hasOutput = true;
+            }
+
+            if (hasOutput) {
                 setChanged();
+                syncToAllViewers();
             }
         }
     }
@@ -526,8 +544,26 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         buf.writeBlockPos(this.worldPosition);
     }
 
+    public void addViewer(ServerPlayer player) {
+        if (!activeViewers.contains(player)) {
+            activeViewers.add(player);
+        }
+        syncToPlayer(player);
+    }
+
+    public void removeViewer(ServerPlayer player) {
+        activeViewers.remove(player);
+    }
+
     public void syncToPlayer(ServerPlayer player) {
         NetworkManager.sendToPlayer(player, new ComputerOutputSyncPacket(worldPosition, getOutputHistory()));
+    }
+
+    private void syncToAllViewers() {
+        activeViewers.removeIf(player -> !player.containerMenu.stillValid(player));
+        for (ServerPlayer player : activeViewers) {
+            syncToPlayer(player);
+        }
     }
 
     private byte[] downloadFile(String urlString) throws IOException {

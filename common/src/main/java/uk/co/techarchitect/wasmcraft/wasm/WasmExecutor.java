@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.concurrent.*;
 
 public class WasmExecutor {
@@ -17,8 +18,10 @@ public class WasmExecutor {
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool();
 
     public static ExecutionHandle executeAsync(byte[] wasmBytes, WasmContext context) {
-        Future<ExecutionResult> future = EXECUTOR.submit(() -> executeInternal(wasmBytes, context));
-        return new ExecutionHandle(future);
+        PollingOutputStream stdout = new PollingOutputStream();
+        PollingOutputStream stderr = new PollingOutputStream();
+        Future<ExecutionResult> future = EXECUTOR.submit(() -> executeInternal(wasmBytes, context, stdout, stderr));
+        return new ExecutionHandle(future, stdout, stderr);
     }
 
     public static ExecutionResult execute(byte[] wasmBytes) {
@@ -26,7 +29,9 @@ public class WasmExecutor {
     }
 
     public static ExecutionResult execute(byte[] wasmBytes, WasmContext context) {
-        Future<ExecutionResult> future = EXECUTOR.submit(() -> executeInternal(wasmBytes, context));
+        PollingOutputStream stdout = new PollingOutputStream();
+        PollingOutputStream stderr = new PollingOutputStream();
+        Future<ExecutionResult> future = EXECUTOR.submit(() -> executeInternal(wasmBytes, context, stdout, stderr));
         try {
             return future.get();
         } catch (InterruptedException | ExecutionException e) {
@@ -49,9 +54,7 @@ public class WasmExecutor {
         }
     }
 
-    private static ExecutionResult executeInternal(byte[] wasmBytes, WasmContext context) {
-        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+    private static ExecutionResult executeInternal(byte[] wasmBytes, WasmContext context, PollingOutputStream stdout, PollingOutputStream stderr) {
 
         try {
             LOGGER.info("Parsing WASM module ({} bytes)", wasmBytes.length);
@@ -77,47 +80,12 @@ public class WasmExecutor {
 
             LOGGER.info("WASM execution completed successfully");
 
-            String output = stdout.toString();
-            String errors = stderr.toString();
-            StringBuilder result = new StringBuilder();
-            if (!output.isEmpty()) {
-                result.append(output);
-            }
-            if (!errors.isEmpty()) {
-                if (result.length() > 0) {
-                    result.append("\n");
-                }
-                result.append("STDERR: ").append(errors);
-            }
-
-            if (result.length() == 0) {
-                result.append("Execution completed (no output)");
-            }
-
-            return ExecutionResult.success(result.toString());
+            return buildResult(stdout, stderr);
 
         } catch (com.dylibso.chicory.wasi.WasiExitException e) {
             if (e.exitCode() == 0) {
                 LOGGER.info("WASM execution completed with exit code 0");
-                String outputStr = stdout.toString();
-                String errorStr = stderr.toString();
-
-                StringBuilder result = new StringBuilder();
-                if (!outputStr.isEmpty()) {
-                    result.append(outputStr);
-                }
-                if (!errorStr.isEmpty()) {
-                    if (result.length() > 0) {
-                        result.append("\n");
-                    }
-                    result.append("STDERR: ").append(errorStr);
-                }
-
-                if (result.length() == 0) {
-                    result.append("Execution completed (no output)");
-                }
-
-                return ExecutionResult.success(result.toString());
+                return buildResult(stdout, stderr);
             } else {
                 LOGGER.error("WASM execution exited with code: {}", e.exitCode());
                 return ExecutionResult.error("Process exited with code: " + e.exitCode());
@@ -128,11 +96,59 @@ public class WasmExecutor {
         }
     }
 
+    private static ExecutionResult buildResult(PollingOutputStream stdout, PollingOutputStream stderr) {
+        List<String> outLines = stdout.pollLines();
+        List<String> errLines = stderr.pollLines();
+        String remainingOut = stdout.flushRemaining();
+        String remainingErr = stderr.flushRemaining();
+
+        StringBuilder result = new StringBuilder();
+
+        for (String line : outLines) {
+            if (result.length() > 0) result.append("\n");
+            result.append(line);
+        }
+
+        if (remainingOut != null && !remainingOut.isEmpty()) {
+            if (result.length() > 0) result.append("\n");
+            result.append(remainingOut);
+        }
+
+        if (!errLines.isEmpty() || (remainingErr != null && !remainingErr.isEmpty())) {
+            if (result.length() > 0) result.append("\n");
+            result.append("STDERR: ");
+            for (String line : errLines) {
+                result.append(line).append("\n");
+            }
+            if (remainingErr != null && !remainingErr.isEmpty()) {
+                result.append(remainingErr);
+            }
+        }
+
+        if (result.length() == 0) {
+            result.append("Execution completed (no output)");
+        }
+
+        return ExecutionResult.success(result.toString());
+    }
+
     public static class ExecutionHandle {
         private final Future<ExecutionResult> future;
+        private final PollingOutputStream stdout;
+        private final PollingOutputStream stderr;
 
-        private ExecutionHandle(Future<ExecutionResult> future) {
+        private ExecutionHandle(Future<ExecutionResult> future, PollingOutputStream stdout, PollingOutputStream stderr) {
             this.future = future;
+            this.stdout = stdout;
+            this.stderr = stderr;
+        }
+
+        public PollingOutputStream getStdout() {
+            return stdout;
+        }
+
+        public PollingOutputStream getStderr() {
+            return stderr;
         }
 
         public boolean isDone() {

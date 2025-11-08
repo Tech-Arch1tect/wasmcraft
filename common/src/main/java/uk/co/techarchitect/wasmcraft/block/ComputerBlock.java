@@ -76,7 +76,7 @@ public class ComputerBlock extends HorizontalDirectionalBlock implements EntityB
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof ComputerBlockEntity computerBlockEntity) {
                 MenuRegistry.openExtendedMenu(serverPlayer, computerBlockEntity);
-                level.getServer().execute(() -> computerBlockEntity.syncToPlayer(serverPlayer));
+                level.getServer().execute(() -> computerBlockEntity.addViewer(serverPlayer));
             }
         }
         return InteractionResult.SUCCESS;
