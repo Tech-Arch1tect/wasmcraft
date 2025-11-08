@@ -71,6 +71,7 @@ public abstract class PeripheralBlockEntity extends BlockEntity implements Perip
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         if (tag.hasUUID("PeripheralId")) {
+            UUID oldId = this.id;
             this.id = tag.getUUID("PeripheralId");
         }
         if (tag.contains("PeripheralLabel")) {
