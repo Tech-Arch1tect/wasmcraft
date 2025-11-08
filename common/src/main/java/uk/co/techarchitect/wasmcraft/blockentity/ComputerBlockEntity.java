@@ -297,6 +297,31 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
             WasmExecutor.ExecutionResult result = activeExecution.getResultIfDone();
             if (result != null) {
+                List<String> finalStdout = activeExecution.getStdout().pollLines();
+                List<String> finalStderr = activeExecution.getStderr().pollLines();
+
+                for (String line : finalStdout) {
+                    addOutputLine(line);
+                    hasOutput = true;
+                }
+
+                for (String line : finalStderr) {
+                    addOutputLine("STDERR: " + line);
+                    hasOutput = true;
+                }
+
+                String remainingOut = activeExecution.getStdout().flushRemaining();
+                if (remainingOut != null && !remainingOut.isEmpty()) {
+                    addOutputLine(remainingOut);
+                    hasOutput = true;
+                }
+
+                String remainingErr = activeExecution.getStderr().flushRemaining();
+                if (remainingErr != null && !remainingErr.isEmpty()) {
+                    addOutputLine("STDERR: " + remainingErr);
+                    hasOutput = true;
+                }
+
                 if (!result.isSuccess()) {
                     addOutputLine("ERROR: " + result.getError());
                     hasOutput = true;
