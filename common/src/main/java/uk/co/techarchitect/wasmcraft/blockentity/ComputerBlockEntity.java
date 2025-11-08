@@ -51,6 +51,7 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
     private final int[] redstoneInputs = new int[6];
     private final Map<String, UUID> connectedPeripherals = new HashMap<>();
     private UUID owner;
+    private WasmExecutor.ExecutionHandle activeExecution;
 
     public ComputerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.COMPUTER_BLOCK_ENTITY.get(), pos, state);
@@ -276,6 +277,23 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         return new ArrayList<>(outputHistory);
     }
 
+    public void tick() {
+        if (activeExecution != null) {
+            WasmExecutor.ExecutionResult result = activeExecution.getResultIfDone();
+            if (result != null) {
+                if (result.isSuccess()) {
+                    for (String line : result.getOutput().split("\n")) {
+                        addOutputLine(line);
+                    }
+                } else {
+                    addOutputLine("ERROR: " + result.getError());
+                }
+                activeExecution = null;
+                setChanged();
+            }
+        }
+    }
+
     public void executeCommand(String command) {
         addOutputLine("> " + command);
 
@@ -291,6 +309,7 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
                 addOutputLine("  rm <file>       - Delete file from storage");
                 addOutputLine("  download <url>  - Download WASM from URL");
                 addOutputLine("  run <file>      - Execute WASM file");
+                addOutputLine("  stop            - Cancel running program");
             }
             case "clear" -> {
                 outputHistory.clear();
@@ -366,31 +385,39 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
                     addOutputLine("Usage: run <filename>");
                     addOutputLine("Example: run hello.wasm");
                 } else {
-                    String filename = parts[1];
-                    if (!filename.endsWith(".wasm")) {
-                        filename = filename + ".wasm";
-                    }
-
-                    addOutputLine("Executing " + filename + "...");
-
-                    updateRedstoneInputs();
-
-                    WasmExecutor.ExecutionResult result;
-
-                    if (fileSystem.containsKey(filename)) {
-                        byte[] wasmBytes = fileSystem.get(filename);
-                        result = WasmExecutor.execute(wasmBytes, this);
+                    if (activeExecution != null && !activeExecution.isDone()) {
+                        addOutputLine("ERROR: A program is already running. Use 'stop' to cancel it.");
                     } else {
-                        String resourcePath = "/wasm/" + filename;
-                        result = WasmExecutor.executeFromResource(resourcePath);
-                    }
-
-                    if (result.isSuccess()) {
-                        for (String line : result.getOutput().split("\n")) {
-                            addOutputLine(line);
+                        String filename = parts[1];
+                        if (!filename.endsWith(".wasm")) {
+                            filename = filename + ".wasm";
                         }
+
+                        addOutputLine("Executing " + filename + "...");
+
+                        updateRedstoneInputs();
+
+                        byte[] wasmBytes;
+                        if (fileSystem.containsKey(filename)) {
+                            wasmBytes = fileSystem.get(filename);
+                        } else {
+                            addOutputLine("File not found: " + filename);
+                            break;
+                        }
+
+                        activeExecution = WasmExecutor.executeAsync(wasmBytes, this);
+                    }
+                }
+            }
+            case "stop" -> {
+                if (activeExecution == null || activeExecution.isDone()) {
+                    addOutputLine("No program is currently running");
+                } else {
+                    if (activeExecution.cancel()) {
+                        addOutputLine("Program cancelled");
+                        activeExecution = null;
                     } else {
-                        addOutputLine("ERROR: " + result.getError());
+                        addOutputLine("Failed to cancel program");
                     }
                 }
             }

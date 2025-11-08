@@ -14,30 +14,21 @@ import java.util.concurrent.*;
 
 public class WasmExecutor {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final long DEFAULT_TIMEOUT_MS = 5000;
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool();
 
+    public static ExecutionHandle executeAsync(byte[] wasmBytes, WasmContext context) {
+        Future<ExecutionResult> future = EXECUTOR.submit(() -> executeInternal(wasmBytes, context));
+        return new ExecutionHandle(future);
+    }
+
     public static ExecutionResult execute(byte[] wasmBytes) {
-        return execute(wasmBytes, DEFAULT_TIMEOUT_MS);
+        return execute(wasmBytes, null);
     }
 
     public static ExecutionResult execute(byte[] wasmBytes, WasmContext context) {
-        return execute(wasmBytes, DEFAULT_TIMEOUT_MS, context);
-    }
-
-    public static ExecutionResult execute(byte[] wasmBytes, long timeoutMs) {
-        return execute(wasmBytes, timeoutMs, null);
-    }
-
-    public static ExecutionResult execute(byte[] wasmBytes, long timeoutMs, WasmContext context) {
         Future<ExecutionResult> future = EXECUTOR.submit(() -> executeInternal(wasmBytes, context));
-
         try {
-            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-            future.cancel(true);
-            LOGGER.error("WASM execution timed out after {}ms", timeoutMs);
-            return ExecutionResult.error("Execution timed out after " + timeoutMs + "ms");
+            return future.get();
         } catch (InterruptedException | ExecutionException e) {
             LOGGER.error("WASM execution failed", e);
             return ExecutionResult.error("Execution failed: " + e.getMessage());
@@ -134,6 +125,40 @@ public class WasmExecutor {
         } catch (Exception e) {
             LOGGER.error("WASM execution error", e);
             return ExecutionResult.error("Execution error: " + e.getMessage());
+        }
+    }
+
+    public static class ExecutionHandle {
+        private final Future<ExecutionResult> future;
+
+        private ExecutionHandle(Future<ExecutionResult> future) {
+            this.future = future;
+        }
+
+        public boolean isDone() {
+            return future.isDone();
+        }
+
+        public boolean cancel() {
+            return future.cancel(true);
+        }
+
+        public ExecutionResult getResult() {
+            try {
+                return future.get();
+            } catch (InterruptedException | ExecutionException e) {
+                LOGGER.error("Failed to get WASM execution result", e);
+                return ExecutionResult.error("Failed to get result: " + e.getMessage());
+            } catch (CancellationException e) {
+                return ExecutionResult.error("Execution was cancelled");
+            }
+        }
+
+        public ExecutionResult getResultIfDone() {
+            if (!isDone()) {
+                return null;
+            }
+            return getResult();
         }
     }
 

@@ -10,6 +10,10 @@ cd monitor_one
 tinygo build -o ../monitor_one.wasm -target=wasi .
 cd ..
 
+cd infinite_loop
+tinygo build -o ../infinite_loop.wasm -target=wasi .
+cd ..
+
 echo ""
 echo "Done! Files compiled:"
 ls -lh *.wasm
