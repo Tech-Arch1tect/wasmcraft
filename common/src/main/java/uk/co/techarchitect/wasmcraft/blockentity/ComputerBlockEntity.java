@@ -248,6 +248,17 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         return new int[]{controller.getPixelWidth(), controller.getPixelHeight()};
     }
 
+    @Override
+    public void setResolution(String monitorId, int width, int height) {
+        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
+        if (monitor == null) {
+            return;
+        }
+        if (width == height) {
+            monitor.setResolution(width);
+        }
+    }
+
     private MonitorBlockEntity getConnectedMonitor(String monitorId) {
         if (level == null || level.isClientSide) {
             return null;

@@ -20,15 +20,25 @@ import java.util.Map;
 
 public class MonitorRenderer implements BlockEntityRenderer<MonitorBlockEntity> {
     private static final Map<MonitorBlockEntity, MonitorTexture> TEXTURES = new HashMap<>();
-    private static final int RESOLUTION = 64;
 
     private static class MonitorTexture {
-        final DynamicTexture texture;
-        final ResourceLocation location;
+        DynamicTexture texture;
+        ResourceLocation location;
+        int resolution;
 
-        MonitorTexture() {
-            texture = new DynamicTexture(RESOLUTION, RESOLUTION, true);
+        MonitorTexture(int resolution) {
+            this.resolution = resolution;
+            texture = new DynamicTexture(resolution, resolution, true);
             location = Minecraft.getInstance().getTextureManager().register("monitor", texture);
+        }
+
+        void updateResolution(int newResolution) {
+            if (this.resolution != newResolution) {
+                texture.close();
+                this.resolution = newResolution;
+                texture = new DynamicTexture(newResolution, newResolution, true);
+                location = Minecraft.getInstance().getTextureManager().register("monitor", texture);
+            }
         }
 
         void close() {
@@ -42,13 +52,16 @@ public class MonitorRenderer implements BlockEntityRenderer<MonitorBlockEntity> 
     @Override
     public void render(MonitorBlockEntity monitor, float partialTick, PoseStack poseStack, MultiBufferSource bufferSource, int light, int overlay) {
         Direction facing = monitor.getBlockState().getValue(HorizontalDirectionalBlock.FACING);
-        MonitorTexture monitorTex = TEXTURES.computeIfAbsent(monitor, m -> new MonitorTexture());
 
         // Get the controller to access the unified pixel buffer
         MonitorBlockEntity controller = monitor.getController();
         if (controller == null) {
             return;
         }
+
+        int resolution = controller.getResolution();
+        MonitorTexture monitorTex = TEXTURES.computeIfAbsent(monitor, m -> new MonitorTexture(resolution));
+        monitorTex.updateResolution(resolution);
 
         byte[] pixelData = controller.getPixelData();
         if (pixelData == null) {
@@ -60,8 +73,8 @@ public class MonitorRenderer implements BlockEntityRenderer<MonitorBlockEntity> 
         int offsetY = offset[1];
         int bufferWidth = controller.getPixelWidth();
 
-        for (int y = 0; y < RESOLUTION; y++) {
-            for (int x = 0; x < RESOLUTION; x++) {
+        for (int y = 0; y < resolution; y++) {
+            for (int x = 0; x < resolution; x++) {
                 int globalX = offsetX + x;
                 int globalY = offsetY + y;
                 int index = (globalY * bufferWidth + globalX) * 3;
@@ -72,7 +85,7 @@ public class MonitorRenderer implements BlockEntityRenderer<MonitorBlockEntity> 
                     int b = pixelData[index + 2] & 0xFF;
 
                     int abgr = 0xFF000000 | (b << 16) | (g << 8) | r;
-                    int texX = RESOLUTION - 1 - x;
+                    int texX = resolution - 1 - x;
                     monitorTex.texture.getPixels().setPixelRGBA(texX, y, abgr);
                 }
             }

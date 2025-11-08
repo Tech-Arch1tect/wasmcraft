@@ -15,6 +15,8 @@ public interface MonitorContext extends WasmContext {
 
     int[] getSize(String monitorId);
 
+    void setResolution(String monitorId, int width, int height);
+
     @Override
     default HostFunction[] toHostFunctions() {
         return new HostFunction[] {
@@ -112,6 +114,27 @@ public interface MonitorContext extends WasmContext {
                     instance.memory().writeI32(resultPtr + 4, size[1]);
 
                     return new long[] { resultPtr };
+                }
+            ),
+            new HostFunction(
+                "env",
+                "monitor_set_resolution",
+                List.of(ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32),
+                List.of(),
+                (instance, args) -> {
+                    int idPtr = (int) args[0];
+                    int idLen = (int) args[1];
+                    byte[] idBytes = new byte[idLen];
+                    for (int i = 0; i < idLen; i++) {
+                        idBytes[i] = (byte) instance.memory().read(idPtr + i);
+                    }
+                    String monitorId = new String(idBytes);
+
+                    int width = (int) args[2];
+                    int height = (int) args[3];
+
+                    setResolution(monitorId, width, height);
+                    return null;
                 }
             )
         };

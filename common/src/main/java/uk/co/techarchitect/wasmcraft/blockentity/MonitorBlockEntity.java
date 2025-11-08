@@ -16,10 +16,12 @@ import uk.co.techarchitect.wasmcraft.peripheral.PeripheralBlockEntity;
 import java.util.*;
 
 public class MonitorBlockEntity extends PeripheralBlockEntity {
-    private static final int RESOLUTION = 64;
-    private static final int PIXEL_COUNT = RESOLUTION * RESOLUTION;
+    private static final int DEFAULT_RESOLUTION = 64;
+    private static final int MIN_RESOLUTION = 16;
+    private static final int MAX_RESOLUTION = 128;
     private static final long UPDATE_INTERVAL_MS = 50;
 
+    private int resolution = DEFAULT_RESOLUTION;
     private byte[] pixels;
 
     private boolean isController = true;
@@ -32,15 +34,15 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
     private int gridX = 0;
     private int gridY = 0;
 
-    private int dirtyMinX = RESOLUTION;
-    private int dirtyMinY = RESOLUTION;
+    private int dirtyMinX = Integer.MAX_VALUE;
+    private int dirtyMinY = Integer.MAX_VALUE;
     private int dirtyMaxX = -1;
     private int dirtyMaxY = -1;
     private long lastUpdateTime = 0;
 
     public MonitorBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.MONITOR_BLOCK_ENTITY.get(), pos, state);
-        this.pixels = new byte[PIXEL_COUNT * 3];
+        this.pixels = new byte[resolution * resolution * 3];
         this.structureBlocks.add(pos);
     }
 
@@ -73,7 +75,7 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
             controllerPos = null;
             structureWidth = 1;
             structureHeight = 1;
-            pixels = new byte[RESOLUTION * RESOLUTION * 3];
+            pixels = new byte[resolution * resolution * 3];
             structureBlocks.clear();
             structureBlocks.add(worldPosition);
             setChanged();
@@ -85,18 +87,20 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         int height = oldController.structureHeight;
         byte[] oldPixels = oldController.pixels;
         BlockPos origin = oldController.structureOrigin;
+        int oldResolution = oldController.resolution;
 
         this.isController = true;
         this.controllerPos = null;
         this.structureOrigin = origin;
         this.structureWidth = width;
         this.structureHeight = height;
+        this.resolution = oldResolution;
         this.structureBlocks = new HashSet<>(allBlocks);
 
         if (oldPixels != null) {
             this.pixels = oldPixels.clone();
         } else {
-            this.pixels = new byte[width * height * RESOLUTION * RESOLUTION * 3];
+            this.pixels = new byte[width * height * resolution * resolution * 3];
         }
 
         for (BlockPos pos : allBlocks) {
@@ -107,6 +111,7 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
                     member.structureOrigin = origin;
                     member.structureWidth = width;
                     member.structureHeight = height;
+                    member.resolution = oldResolution;
                     member.pixels = null;
                     member.setChanged();
                     level.sendBlockUpdated(pos, level.getBlockState(pos), level.getBlockState(pos), 3);
@@ -127,11 +132,15 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
     }
 
     public int getPixelWidth() {
-        return structureWidth * RESOLUTION;
+        return structureWidth * resolution;
     }
 
     public int getPixelHeight() {
-        return structureHeight * RESOLUTION;
+        return structureHeight * resolution;
+    }
+
+    public int getResolution() {
+        return resolution;
     }
 
     public boolean isController() {
@@ -185,7 +194,9 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
     }
 
     public int[] getOffsetInStructure() {
-        return new int[]{gridX * RESOLUTION, gridY * RESOLUTION};
+        MonitorBlockEntity controller = getController();
+        int effectiveResolution = controller != null ? controller.resolution : resolution;
+        return new int[]{gridX * effectiveResolution, gridY * effectiveResolution};
     }
 
     public void setPixel(int x, int y, int r, int g, int b) {
@@ -330,8 +341,8 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         MonitorUpdatePacket packet = new MonitorUpdatePacket(worldPosition, dirtyMinX, dirtyMinY, dirtyMaxX, dirtyMaxY, dirtyData);
         ModNetworking.sendToAllTracking((ServerLevel) level, worldPosition, packet);
 
-        dirtyMinX = RESOLUTION;
-        dirtyMinY = RESOLUTION;
+        dirtyMinX = Integer.MAX_VALUE;
+        dirtyMinY = Integer.MAX_VALUE;
         dirtyMaxX = -1;
         dirtyMaxY = -1;
         lastUpdateTime = System.currentTimeMillis();
@@ -495,8 +506,8 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
             return;
         }
 
-        int pixelWidth = width * RESOLUTION;
-        int pixelHeight = height * RESOLUTION;
+        int pixelWidth = width * resolution;
+        int pixelHeight = height * resolution;
         byte[] newBuffer = new byte[pixelWidth * pixelHeight * 3];
 
         controller.isController = true;
@@ -528,6 +539,7 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
                     member.structureOrigin = controllerPos;
                     member.structureWidth = width;
                     member.structureHeight = height;
+                    member.resolution = controller.resolution;
                     member.pixels = null;
                     member.structureBlocks.clear();
                     member.calculateGridPosition(controllerPos, width, height, planeType);
@@ -560,6 +572,50 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         }
     }
 
+    public void setResolution(int newResolution) {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+
+        newResolution = Math.max(MIN_RESOLUTION, Math.min(MAX_RESOLUTION, newResolution));
+
+        MonitorBlockEntity controller = getController();
+        if (controller == null) {
+            return;
+        }
+
+        if (controller.resolution == newResolution) {
+            return;
+        }
+
+        controller.resolution = newResolution;
+
+        int pixelWidth = controller.structureWidth * newResolution;
+        int pixelHeight = controller.structureHeight * newResolution;
+        controller.pixels = new byte[pixelWidth * pixelHeight * 3];
+
+        for (BlockPos pos : controller.structureBlocks) {
+            if (level.getBlockEntity(pos) instanceof MonitorBlockEntity member) {
+                member.resolution = newResolution;
+                member.setChanged();
+
+                // Force NBT sync to client
+                BlockState state = level.getBlockState(pos);
+                level.sendBlockUpdated(pos, state, state, 3);
+                if (level instanceof ServerLevel serverLevel) {
+                    serverLevel.getChunkSource().blockChanged(pos);
+                }
+            }
+        }
+
+        controller.setChanged();
+        BlockState controllerState = level.getBlockState(controller.worldPosition);
+        level.sendBlockUpdated(controller.worldPosition, controllerState, controllerState, 3);
+        if (level instanceof ServerLevel serverLevel) {
+            serverLevel.getChunkSource().blockChanged(controller.worldPosition);
+        }
+    }
+
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
@@ -569,6 +625,7 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         tag.putInt("StructureHeight", structureHeight);
         tag.putInt("GridX", gridX);
         tag.putInt("GridY", gridY);
+        tag.putInt("Resolution", resolution);
 
         if (controllerPos != null) {
             tag.putIntArray("ControllerPos", new int[]{controllerPos.getX(), controllerPos.getY(), controllerPos.getZ()});
@@ -613,6 +670,7 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         structureHeight = tag.getInt("StructureHeight");
         gridX = tag.getInt("GridX");
         gridY = tag.getInt("GridY");
+        resolution = tag.contains("Resolution") ? tag.getInt("Resolution") : DEFAULT_RESOLUTION;
 
         if (tag.contains("ControllerPos", Tag.TAG_INT_ARRAY)) {
             int[] pos = tag.getIntArray("ControllerPos");
@@ -639,12 +697,12 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
             }
         }
 
-        int expectedBufferSize = structureWidth * structureHeight * RESOLUTION * RESOLUTION * 3;
+        int expectedBufferSize = structureWidth * structureHeight * resolution * resolution * 3;
 
         if (isController) {
             if (pixels == null || pixels.length != expectedBufferSize) {
-                int pixelWidth = structureWidth * RESOLUTION;
-                int pixelHeight = structureHeight * RESOLUTION;
+                int pixelWidth = structureWidth * resolution;
+                int pixelHeight = structureHeight * resolution;
                 pixels = new byte[pixelWidth * pixelHeight * 3];
             }
         } else {
