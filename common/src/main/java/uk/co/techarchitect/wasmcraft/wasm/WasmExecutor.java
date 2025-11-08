@@ -80,12 +80,12 @@ public class WasmExecutor {
 
             LOGGER.info("WASM execution completed successfully");
 
-            return buildResult(stdout, stderr);
+            return ExecutionResult.success("Execution completed");
 
         } catch (com.dylibso.chicory.wasi.WasiExitException e) {
             if (e.exitCode() == 0) {
                 LOGGER.info("WASM execution completed with exit code 0");
-                return buildResult(stdout, stderr);
+                return ExecutionResult.success("Execution completed");
             } else {
                 LOGGER.error("WASM execution exited with code: {}", e.exitCode());
                 return ExecutionResult.error("Process exited with code: " + e.exitCode());

@@ -13,7 +13,8 @@ public class PollingOutputStream extends OutputStream {
     @Override
     public synchronized void write(int b) {
         if (b == '\n') {
-            lines.offer(currentLine.toString());
+            String line = currentLine.toString();
+            lines.offer(line);
             currentLine.setLength(0);
         } else if (b != '\r') {
             currentLine.append((char) b);
@@ -25,7 +26,8 @@ public class PollingOutputStream extends OutputStream {
         String text = new String(b, off, len, StandardCharsets.UTF_8);
         for (char c : text.toCharArray()) {
             if (c == '\n') {
-                lines.offer(currentLine.toString());
+                String line = currentLine.toString();
+                lines.offer(line);
                 currentLine.setLength(0);
             } else if (c != '\r') {
                 currentLine.append(c);
