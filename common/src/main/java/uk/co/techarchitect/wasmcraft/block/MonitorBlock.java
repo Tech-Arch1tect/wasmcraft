@@ -14,11 +14,14 @@ import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
+import uk.co.techarchitect.wasmcraft.blockentity.ModBlockEntities;
 import uk.co.techarchitect.wasmcraft.blockentity.MonitorBlockEntity;
 import uk.co.techarchitect.wasmcraft.client.screen.PeripheralLabelScreen;
 
@@ -76,5 +79,16 @@ public class MonitorBlock extends HorizontalDirectionalBlock implements EntityBl
             }
         }
         return InteractionResult.SUCCESS;
+    }
+
+    @Nullable
+    @Override
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> blockEntityType) {
+        if (level.isClientSide) {
+            return null;
+        }
+        return blockEntityType == ModBlockEntities.MONITOR_BLOCK_ENTITY.get()
+                ? (lvl, pos, st, be) -> ((MonitorBlockEntity) be).tick()
+                : null;
     }
 }
