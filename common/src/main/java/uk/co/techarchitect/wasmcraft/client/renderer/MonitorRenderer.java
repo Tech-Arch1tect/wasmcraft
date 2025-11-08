@@ -44,15 +44,37 @@ public class MonitorRenderer implements BlockEntityRenderer<MonitorBlockEntity> 
         Direction facing = monitor.getBlockState().getValue(HorizontalDirectionalBlock.FACING);
         MonitorTexture monitorTex = TEXTURES.computeIfAbsent(monitor, m -> new MonitorTexture());
 
-        byte[] pixelData = monitor.getPixelData();
+        // Get the controller to access the unified pixel buffer
+        MonitorBlockEntity controller = monitor.getController();
+        if (controller == null) {
+            return;
+        }
+
+        byte[] pixelData = controller.getPixelData();
+        if (pixelData == null) {
+            return;
+        }
+
+        int[] offset = monitor.getOffsetInStructure();
+        int offsetX = offset[0];
+        int offsetY = offset[1];
+        int bufferWidth = controller.getPixelWidth();
+
         for (int y = 0; y < RESOLUTION; y++) {
             for (int x = 0; x < RESOLUTION; x++) {
-                int index = (y * RESOLUTION + x) * 3;
-                int r = pixelData[index] & 0xFF;
-                int g = pixelData[index + 1] & 0xFF;
-                int b = pixelData[index + 2] & 0xFF;
-                int abgr = 0xFF000000 | (b << 16) | (g << 8) | r;
-                monitorTex.texture.getPixels().setPixelRGBA(x, y, abgr);
+                int globalX = offsetX + x;
+                int globalY = offsetY + y;
+                int index = (globalY * bufferWidth + globalX) * 3;
+
+                if (index >= 0 && index + 2 < pixelData.length) {
+                    int r = pixelData[index] & 0xFF;
+                    int g = pixelData[index + 1] & 0xFF;
+                    int b = pixelData[index + 2] & 0xFF;
+
+                    int abgr = 0xFF000000 | (b << 16) | (g << 8) | r;
+                    int texX = RESOLUTION - 1 - x;
+                    monitorTex.texture.getPixels().setPixelRGBA(texX, y, abgr);
+                }
             }
         }
 
