@@ -1,20 +1,36 @@
 package uk.co.techarchitect.wasmcraft.blockentity;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntArrayTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
 import uk.co.techarchitect.wasmcraft.network.ModNetworking;
 import uk.co.techarchitect.wasmcraft.network.packet.MonitorUpdatePacket;
 import uk.co.techarchitect.wasmcraft.peripheral.PeripheralBlockEntity;
 
-import java.util.Random;
+import java.util.*;
 
 public class MonitorBlockEntity extends PeripheralBlockEntity {
     private static final int RESOLUTION = 64;
     private static final int PIXEL_COUNT = RESOLUTION * RESOLUTION;
     private static final long UPDATE_INTERVAL_MS = 50;
 
-    private final byte[] pixels;
+    private byte[] pixels;
+
+    private boolean isController = true;
+    private BlockPos controllerPos = null;
+    private BlockPos structureOrigin = null;
+    private int structureWidth = 1;
+    private int structureHeight = 1;
+    private Set<BlockPos> structureBlocks = new HashSet<>();
+
+    private int gridX = 0;
+    private int gridY = 0;
 
     private int dirtyMinX = RESOLUTION;
     private int dirtyMinY = RESOLUTION;
@@ -25,6 +41,7 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
     public MonitorBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.MONITOR_BLOCK_ENTITY.get(), pos, state);
         this.pixels = new byte[PIXEL_COUNT * 3];
+        this.structureBlocks.add(pos);
     }
 
     @Override
@@ -37,12 +54,155 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         return "monitor";
     }
 
-    public int getResolution() {
-        return RESOLUTION;
+    @Override
+    public void setLabel(String label) {
+        if (!isController && (structureWidth > 1 || structureHeight > 1)) {
+            promoteToController();
+        }
+        super.setLabel(label);
+    }
+
+    private void promoteToController() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+
+        MonitorBlockEntity oldController = getController();
+        if (oldController == null) {
+            isController = true;
+            controllerPos = null;
+            structureWidth = 1;
+            structureHeight = 1;
+            pixels = new byte[RESOLUTION * RESOLUTION * 3];
+            structureBlocks.clear();
+            structureBlocks.add(worldPosition);
+            setChanged();
+            return;
+        }
+
+        Set<BlockPos> allBlocks = new HashSet<>(oldController.structureBlocks);
+        int width = oldController.structureWidth;
+        int height = oldController.structureHeight;
+        byte[] oldPixels = oldController.pixels;
+        BlockPos origin = oldController.structureOrigin;
+
+        this.isController = true;
+        this.controllerPos = null;
+        this.structureOrigin = origin;
+        this.structureWidth = width;
+        this.structureHeight = height;
+        this.structureBlocks = new HashSet<>(allBlocks);
+
+        if (oldPixels != null) {
+            this.pixels = oldPixels.clone();
+        } else {
+            this.pixels = new byte[width * height * RESOLUTION * RESOLUTION * 3];
+        }
+
+        for (BlockPos pos : allBlocks) {
+            if (!pos.equals(worldPosition)) {
+                if (level.getBlockEntity(pos) instanceof MonitorBlockEntity member) {
+                    member.isController = false;
+                    member.controllerPos = worldPosition;
+                    member.structureOrigin = origin;
+                    member.structureWidth = width;
+                    member.structureHeight = height;
+                    member.pixels = null;
+                    member.setChanged();
+                    level.sendBlockUpdated(pos, level.getBlockState(pos), level.getBlockState(pos), 3);
+                }
+            }
+        }
+
+        if (!oldController.worldPosition.equals(worldPosition)) {
+            oldController.isController = false;
+            oldController.controllerPos = worldPosition;
+            oldController.pixels = null;
+            oldController.setChanged();
+            level.sendBlockUpdated(oldController.worldPosition, level.getBlockState(oldController.worldPosition), level.getBlockState(oldController.worldPosition), 3);
+        }
+
+        setChanged();
+        level.sendBlockUpdated(worldPosition, level.getBlockState(worldPosition), level.getBlockState(worldPosition), 3);
+    }
+
+    public int getPixelWidth() {
+        return structureWidth * RESOLUTION;
+    }
+
+    public int getPixelHeight() {
+        return structureHeight * RESOLUTION;
+    }
+
+    public boolean isController() {
+        return isController;
+    }
+
+    public MonitorBlockEntity getController() {
+        if (isController) {
+            return this;
+        }
+        if (level != null && controllerPos != null) {
+            net.minecraft.world.level.block.entity.BlockEntity be = level.getBlockEntity(controllerPos);
+            if (be instanceof MonitorBlockEntity controller) {
+                return controller;
+            }
+        }
+        return null;
+    }
+
+    private void calculateGridPosition(BlockPos origin, int gridWidth, int gridHeight, String planeType) {
+        int dx = worldPosition.getX() - origin.getX();
+        int dy = worldPosition.getY() - origin.getY();
+        int dz = worldPosition.getZ() - origin.getZ();
+
+        switch (planeType) {
+            case "YZ_EAST" -> {
+                gridX = -dz;
+                gridY = -dy;
+            }
+            case "YZ_WEST" -> {
+                gridX = dz;
+                gridY = -dy;
+            }
+            case "XZ" -> {
+                gridX = -dx;
+                gridY = -dz;
+            }
+            case "XY_SOUTH" -> {
+                gridX = dx;
+                gridY = -dy;
+            }
+            case "XY_NORTH" -> {
+                gridX = -dx;
+                gridY = -dy;
+            }
+            default -> {
+                gridX = 0;
+                gridY = 0;
+            }
+        }
+    }
+
+    public int[] getOffsetInStructure() {
+        return new int[]{gridX * RESOLUTION, gridY * RESOLUTION};
     }
 
     public void setPixel(int x, int y, int r, int g, int b) {
-        if (x < 0 || x >= RESOLUTION || y < 0 || y >= RESOLUTION) {
+        MonitorBlockEntity controller = getController();
+        if (controller == null) {
+            return;
+        }
+
+        byte[] buffer = controller.pixels;
+        if (buffer == null) {
+            return;
+        }
+
+        int width = controller.getPixelWidth();
+        int height = controller.getPixelHeight();
+
+        if (x < 0 || x >= width || y < 0 || y >= height) {
             return;
         }
 
@@ -50,48 +210,73 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         g = Math.max(0, Math.min(255, g));
         b = Math.max(0, Math.min(255, b));
 
-        int index = (y * RESOLUTION + x) * 3;
-        pixels[index] = (byte) r;
-        pixels[index + 1] = (byte) g;
-        pixels[index + 2] = (byte) b;
+        int index = (y * width + x) * 3;
+        buffer[index] = (byte) r;
+        buffer[index + 1] = (byte) g;
+        buffer[index + 2] = (byte) b;
 
-        markDirty(x, y);
+        controller.markDirty(x, y);
 
         if (level != null && !level.isClientSide) {
-            level.getServer().execute(this::setChanged);
+            level.getServer().execute(controller::setChanged);
         }
     }
 
     public int[] getPixel(int x, int y) {
-        if (x < 0 || x >= RESOLUTION || y < 0 || y >= RESOLUTION) {
+        MonitorBlockEntity controller = getController();
+        if (controller == null) {
             return new int[]{0, 0, 0};
         }
 
-        int index = (y * RESOLUTION + x) * 3;
-        int r = pixels[index] & 0xFF;
-        int g = pixels[index + 1] & 0xFF;
-        int b = pixels[index + 2] & 0xFF;
+        byte[] buffer = controller.pixels;
+        if (buffer == null) {
+            return new int[]{0, 0, 0};
+        }
+
+        int width = controller.getPixelWidth();
+        int height = controller.getPixelHeight();
+
+        if (x < 0 || x >= width || y < 0 || y >= height) {
+            return new int[]{0, 0, 0};
+        }
+
+        int index = (y * width + x) * 3;
+        int r = buffer[index] & 0xFF;
+        int g = buffer[index + 1] & 0xFF;
+        int b = buffer[index + 2] & 0xFF;
 
         return new int[]{r, g, b};
     }
 
     public void clear(int r, int g, int b) {
+        MonitorBlockEntity controller = getController();
+        if (controller == null) {
+            return;
+        }
+
+        byte[] buffer = controller.pixels;
+        if (buffer == null) {
+            return;
+        }
+
         r = Math.max(0, Math.min(255, r));
         g = Math.max(0, Math.min(255, g));
         b = Math.max(0, Math.min(255, b));
 
-        for (int i = 0; i < PIXEL_COUNT; i++) {
+        int totalPixels = controller.getPixelWidth() * controller.getPixelHeight();
+
+        for (int i = 0; i < totalPixels; i++) {
             int index = i * 3;
-            pixels[index] = (byte) r;
-            pixels[index + 1] = (byte) g;
-            pixels[index + 2] = (byte) b;
+            buffer[index] = (byte) r;
+            buffer[index + 1] = (byte) g;
+            buffer[index + 2] = (byte) b;
         }
 
-        markDirty(0, 0);
-        markDirty(RESOLUTION - 1, RESOLUTION - 1);
+        controller.markDirty(0, 0);
+        controller.markDirty(controller.getPixelWidth() - 1, controller.getPixelHeight() - 1);
 
         if (level != null && !level.isClientSide) {
-            level.getServer().execute(this::setChanged);
+            level.getServer().execute(controller::setChanged);
         }
     }
 
@@ -128,13 +313,17 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         int height = dirtyMaxY - dirtyMinY + 1;
         byte[] dirtyData = new byte[width * height * 3];
 
+        int bufferWidth = getPixelWidth();
+
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int srcIndex = ((dirtyMinY + y) * RESOLUTION + (dirtyMinX + x)) * 3;
+                int srcIndex = ((dirtyMinY + y) * bufferWidth + (dirtyMinX + x)) * 3;
                 int dstIndex = (y * width + x) * 3;
-                dirtyData[dstIndex] = pixels[srcIndex];
-                dirtyData[dstIndex + 1] = pixels[srcIndex + 1];
-                dirtyData[dstIndex + 2] = pixels[srcIndex + 2];
+                if (srcIndex + 2 < pixels.length) {
+                    dirtyData[dstIndex] = pixels[srcIndex];
+                    dirtyData[dstIndex + 1] = pixels[srcIndex + 1];
+                    dirtyData[dstIndex + 2] = pixels[srcIndex + 2];
+                }
             }
         }
 
@@ -152,14 +341,314 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         int width = maxX - minX + 1;
         int height = maxY - minY + 1;
 
+        int bufferWidth = getPixelWidth();
+
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 int srcIndex = (y * width + x) * 3;
-                int dstIndex = ((minY + y) * RESOLUTION + (minX + x)) * 3;
+                int dstIndex = ((minY + y) * bufferWidth + (minX + x)) * 3;
+
+                if (dstIndex + 2 >= pixels.length) {
+                    return;
+                }
+
                 pixels[dstIndex] = data[srcIndex];
                 pixels[dstIndex + 1] = data[srcIndex + 1];
                 pixels[dstIndex + 2] = data[srcIndex + 2];
             }
+        }
+    }
+
+    public void tryFormStructure() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+
+        Set<BlockPos> adjacentMonitors = findAdjacentMonitors(worldPosition);
+        if (adjacentMonitors.isEmpty()) {
+            return;
+        }
+
+        adjacentMonitors.add(worldPosition);
+
+        int minX = worldPosition.getX();
+        int maxX = worldPosition.getX();
+        int minY = worldPosition.getY();
+        int maxY = worldPosition.getY();
+        int minZ = worldPosition.getZ();
+        int maxZ = worldPosition.getZ();
+
+        for (BlockPos pos : adjacentMonitors) {
+            minX = Math.min(minX, pos.getX());
+            maxX = Math.max(maxX, pos.getX());
+            minY = Math.min(minY, pos.getY());
+            maxY = Math.max(maxY, pos.getY());
+            minZ = Math.min(minZ, pos.getZ());
+            maxZ = Math.max(maxZ, pos.getZ());
+        }
+
+        int xSize = maxX - minX + 1;
+        int ySize = maxY - minY + 1;
+        int zSize = maxZ - minZ + 1;
+
+        int flatDimensions = 0;
+        if (xSize == 1) flatDimensions++;
+        if (ySize == 1) flatDimensions++;
+        if (zSize == 1) flatDimensions++;
+
+        if (flatDimensions != 1) {
+            return;
+        }
+
+        if (!isRectangle(minX, minY, minZ, xSize, ySize, zSize)) {
+            return;
+        }
+
+        int structureWidth, structureHeight;
+        BlockPos controllerPos;
+
+        Direction facing = null;
+        for (BlockPos pos : adjacentMonitors) {
+            if (level.getBlockState(pos).getBlock() instanceof uk.co.techarchitect.wasmcraft.block.MonitorBlock) {
+                facing = level.getBlockState(pos).getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING);
+                break;
+            }
+        }
+
+        if (xSize == 1) {
+            structureWidth = zSize;
+            structureHeight = ySize;
+            if (facing == Direction.EAST) {
+                controllerPos = new BlockPos(minX, maxY, maxZ);
+            } else {
+                controllerPos = new BlockPos(minX, maxY, minZ);
+            }
+        } else if (zSize == 1) {
+            structureWidth = xSize;
+            structureHeight = ySize;
+            if (facing == Direction.SOUTH) {
+                controllerPos = new BlockPos(minX, maxY, minZ);
+            } else {
+                controllerPos = new BlockPos(maxX, maxY, minZ);
+            }
+        } else {
+            structureWidth = xSize;
+            structureHeight = zSize;
+            controllerPos = new BlockPos(maxX, minY, maxZ);
+        }
+
+        formStructure(controllerPos, structureWidth, structureHeight, adjacentMonitors, facing);
+    }
+
+    private Set<BlockPos> findAdjacentMonitors(BlockPos start) {
+        Set<BlockPos> found = new HashSet<>();
+        Queue<BlockPos> toCheck = new LinkedList<>();
+        toCheck.add(start);
+        found.add(start);
+
+        UUID ownerUUID = getOwner();
+
+        while (!toCheck.isEmpty()) {
+            BlockPos current = toCheck.poll();
+
+            for (Direction dir : Direction.values()) {
+                BlockPos adjacent = current.relative(dir);
+                if (found.contains(adjacent)) {
+                    continue;
+                }
+
+                if (level.getBlockEntity(adjacent) instanceof MonitorBlockEntity monitor) {
+                    if (ownerUUID == null || ownerUUID.equals(monitor.getOwner())) {
+                        found.add(adjacent);
+                        toCheck.add(adjacent);
+                    }
+                }
+            }
+        }
+
+        found.remove(start);
+        return found;
+    }
+
+    private boolean isRectangle(int minX, int minY, int minZ, int xSize, int ySize, int zSize) {
+        for (int x = 0; x < xSize; x++) {
+            for (int y = 0; y < ySize; y++) {
+                for (int z = 0; z < zSize; z++) {
+                    BlockPos pos = new BlockPos(minX + x, minY + y, minZ + z);
+                    if (!(level.getBlockEntity(pos) instanceof MonitorBlockEntity)) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    private void formStructure(BlockPos controllerPos, int width, int height, Set<BlockPos> allBlocks, Direction facing) {
+        MonitorBlockEntity controller = null;
+
+        if (level.getBlockEntity(controllerPos) instanceof MonitorBlockEntity mon) {
+            controller = mon;
+        }
+
+        if (controller == null) {
+            return;
+        }
+
+        int pixelWidth = width * RESOLUTION;
+        int pixelHeight = height * RESOLUTION;
+        byte[] newBuffer = new byte[pixelWidth * pixelHeight * 3];
+
+        controller.isController = true;
+        controller.controllerPos = null;
+        controller.structureOrigin = controllerPos;
+        controller.structureWidth = width;
+        controller.structureHeight = height;
+        controller.pixels = newBuffer;
+        controller.structureBlocks = new HashSet<>(allBlocks);
+
+        String planeType;
+        if (width == controller.structureBlocks.stream().mapToInt(p -> p.getX()).distinct().count()) {
+            if (height == controller.structureBlocks.stream().mapToInt(p -> p.getY()).distinct().count()) {
+                planeType = (facing == Direction.SOUTH) ? "XY_SOUTH" : "XY_NORTH";
+            } else {
+                planeType = "XZ";
+            }
+        } else {
+            planeType = (facing == Direction.EAST) ? "YZ_EAST" : "YZ_WEST";
+        }
+
+        controller.calculateGridPosition(controllerPos, width, height, planeType);
+
+        for (BlockPos pos : allBlocks) {
+            if (!pos.equals(controllerPos)) {
+                if (level.getBlockEntity(pos) instanceof MonitorBlockEntity member) {
+                    member.isController = false;
+                    member.controllerPos = controllerPos;
+                    member.structureOrigin = controllerPos;
+                    member.structureWidth = width;
+                    member.structureHeight = height;
+                    member.pixels = null;
+                    member.structureBlocks.clear();
+                    member.calculateGridPosition(controllerPos, width, height, planeType);
+                    member.setChanged();
+                    level.sendBlockUpdated(pos, level.getBlockState(pos), level.getBlockState(pos), 3);
+                }
+            }
+        }
+
+        controller.setChanged();
+        level.sendBlockUpdated(controllerPos, level.getBlockState(controllerPos), level.getBlockState(controllerPos), 3);
+    }
+
+    public void breakStructure() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+
+        if (isController) {
+            for (BlockPos pos : new HashSet<>(structureBlocks)) {
+                if (!pos.equals(worldPosition)) {
+                    level.destroyBlock(pos, true);
+                }
+            }
+        } else {
+            MonitorBlockEntity controller = getController();
+            if (controller != null) {
+                controller.breakStructure();
+            }
+        }
+    }
+
+    @Override
+    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.saveAdditional(tag, registries);
+
+        tag.putBoolean("IsController", isController);
+        tag.putInt("StructureWidth", structureWidth);
+        tag.putInt("StructureHeight", structureHeight);
+        tag.putInt("GridX", gridX);
+        tag.putInt("GridY", gridY);
+
+        if (controllerPos != null) {
+            tag.putIntArray("ControllerPos", new int[]{controllerPos.getX(), controllerPos.getY(), controllerPos.getZ()});
+        }
+
+        if (structureOrigin != null) {
+            tag.putIntArray("StructureOrigin", new int[]{structureOrigin.getX(), structureOrigin.getY(), structureOrigin.getZ()});
+        }
+
+        if (isController && !structureBlocks.isEmpty()) {
+            ListTag blocksList = new ListTag();
+            for (BlockPos pos : structureBlocks) {
+                blocksList.add(new IntArrayTag(new int[]{pos.getX(), pos.getY(), pos.getZ()}));
+            }
+            tag.put("StructureBlocks", blocksList);
+        }
+    }
+
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveWithoutMetadata(registries);
+    }
+
+    @Override
+    public net.minecraft.network.protocol.Packet<net.minecraft.network.protocol.game.ClientGamePacketListener> getUpdatePacket() {
+        return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    public void onDataPacket(net.minecraft.network.Connection net, net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket pkt, HolderLookup.Provider registries) {
+        CompoundTag tag = pkt.getTag();
+        if (tag != null) {
+            loadAdditional(tag, registries);
+        }
+    }
+
+    @Override
+    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.loadAdditional(tag, registries);
+
+        isController = tag.getBoolean("IsController");
+        structureWidth = tag.getInt("StructureWidth");
+        structureHeight = tag.getInt("StructureHeight");
+        gridX = tag.getInt("GridX");
+        gridY = tag.getInt("GridY");
+
+        if (tag.contains("ControllerPos", Tag.TAG_INT_ARRAY)) {
+            int[] pos = tag.getIntArray("ControllerPos");
+            if (pos.length == 3) {
+                controllerPos = new BlockPos(pos[0], pos[1], pos[2]);
+            }
+        }
+
+        if (tag.contains("StructureOrigin", Tag.TAG_INT_ARRAY)) {
+            int[] pos = tag.getIntArray("StructureOrigin");
+            if (pos.length == 3) {
+                structureOrigin = new BlockPos(pos[0], pos[1], pos[2]);
+            }
+        }
+
+        if (tag.contains("StructureBlocks", Tag.TAG_LIST)) {
+            structureBlocks.clear();
+            ListTag blocksList = tag.getList("StructureBlocks", Tag.TAG_INT_ARRAY);
+            for (int i = 0; i < blocksList.size(); i++) {
+                int[] pos = blocksList.getIntArray(i);
+                if (pos.length == 3) {
+                    structureBlocks.add(new BlockPos(pos[0], pos[1], pos[2]));
+                }
+            }
+        }
+
+        int expectedBufferSize = structureWidth * structureHeight * RESOLUTION * RESOLUTION * 3;
+
+        if (isController) {
+            if (pixels == null || pixels.length != expectedBufferSize) {
+                int pixelWidth = structureWidth * RESOLUTION;
+                int pixelHeight = structureHeight * RESOLUTION;
+                pixels = new byte[pixelWidth * pixelHeight * 3];
+            }
+        } else {
+            pixels = null;
         }
     }
 }

@@ -58,7 +58,21 @@ public class MonitorBlock extends HorizontalDirectionalBlock implements EntityBl
             BlockEntity blockEntity = level.getBlockEntity(pos);
             if (blockEntity instanceof MonitorBlockEntity monitor) {
                 monitor.onPlaced(player.getUUID());
+                monitor.tryFormStructure();
             }
+        }
+    }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock())) {
+            if (!level.isClientSide) {
+                BlockEntity blockEntity = level.getBlockEntity(pos);
+                if (blockEntity instanceof MonitorBlockEntity monitor) {
+                    monitor.breakStructure();
+                }
+            }
+            super.onRemove(state, level, pos, newState, movedByPiston);
         }
     }
 
