@@ -14,6 +14,9 @@ func monitorClear(idPtr, idLen, r, g, b uint32)
 //go:wasmimport env monitor_get_size
 func monitorGetSize(idPtr, idLen uint32) uint32
 
+//go:wasmimport env monitor_set_resolution
+func monitorSetResolution(idPtr, idLen, width, height uint32)
+
 func SetPixel(monitorID string, x, y, r, g, b int) {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
@@ -55,6 +58,14 @@ func GetSize(monitorID string) (width, height int) {
 	heightVal := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 4)))
 
 	return int(widthVal), int(heightVal)
+}
+
+func SetResolution(monitorID string, resolution int) {
+	idBytes := []byte(monitorID)
+	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
+	idLen := uint32(len(idBytes))
+
+	monitorSetResolution(idPtr, idLen, uint32(resolution), uint32(resolution))
 }
 
 type Color struct {
