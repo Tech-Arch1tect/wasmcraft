@@ -68,7 +68,12 @@ public class PeripheralManager {
             return null;
         }
 
-        if (!peripheral.getOwner().equals(playerUUID)) {
+        UUID peripheralOwner = peripheral.getOwner();
+        if (peripheralOwner == null) {
+            return null;
+        }
+
+        if (!peripheralOwner.equals(playerUUID)) {
             return null;
         }
 

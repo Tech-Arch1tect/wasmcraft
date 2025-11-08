@@ -82,6 +82,14 @@ public abstract class PeripheralBlockEntity extends BlockEntity implements Perip
     }
 
     @Override
+    public void clearRemoved() {
+        super.clearRemoved();
+        if (level != null && !level.isClientSide) {
+            PeripheralManager.getInstance().registerPeripheral(this);
+        }
+    }
+
+    @Override
     public void setRemoved() {
         super.setRemoved();
         if (level != null && !level.isClientSide) {
