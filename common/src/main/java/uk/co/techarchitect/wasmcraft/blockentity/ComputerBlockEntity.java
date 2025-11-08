@@ -170,7 +170,13 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         }
 
         if (connectedPeripherals.containsKey(label)) {
-            return "ERROR: Already connected to " + label;
+            UUID existingUUID = connectedPeripherals.get(label);
+            Peripheral existing = PeripheralManager.getInstance().findById(existingUUID);
+            if (existing != null) {
+                return "ERROR: Already connected to " + label;
+            } else {
+                connectedPeripherals.remove(label);
+            }
         }
 
         Peripheral peripheral = PeripheralManager.getInstance().findByLabel(label, owner);
@@ -190,7 +196,8 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
             level.getServer().execute(this::setChanged);
         }
 
-        return "Connected to " + label + " (" + peripheral.getPeripheralType() + ")";
+        String result = "Connected to " + label + " (" + peripheral.getPeripheralType() + ")";
+        return result;
     }
 
     @Override
@@ -232,8 +239,11 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         if (monitor == null) {
             return new int[]{0, 0};
         }
-        int res = monitor.getResolution();
-        return new int[]{res, res};
+        MonitorBlockEntity controller = monitor.getController();
+        if (controller == null) {
+            return new int[]{0, 0};
+        }
+        return new int[]{controller.getPixelWidth(), controller.getPixelHeight()};
     }
 
     private MonitorBlockEntity getConnectedMonitor(String monitorId) {
@@ -248,6 +258,10 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
         Peripheral peripheral = PeripheralManager.getInstance().findById(peripheralUUID);
         if (peripheral == null) {
+            connectedPeripherals.remove(monitorId);
+            if (level != null && !level.isClientSide) {
+                level.getServer().execute(this::setChanged);
+            }
             return null;
         }
 
