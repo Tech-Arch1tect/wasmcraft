@@ -20,10 +20,15 @@ public class TextureGenerator {
         generateSideTexture(outputDir + "/computer_side.png");
         generateTopTexture(outputDir + "/computer_top.png");
 
+        generateMonitorFrontTexture(outputDir + "/monitor_front.png");
+        generateMonitorFrameTexture(outputDir + "/monitor_frame.png");
+
         System.out.println("Textures generated successfully in " + outputDir);
         System.out.println("- computer_front.png (screen with text)");
         System.out.println("- computer_side.png (circuit pattern)");
         System.out.println("- computer_top.png (vent pattern)");
+        System.out.println("- monitor_front.png (black screen with bezel)");
+        System.out.println("- monitor_frame.png (gray metal frame)");
     }
 
     private static void generateFrontTexture(String path) throws IOException {
@@ -105,6 +110,38 @@ public class TextureGenerator {
                 g.fillRect(x, y, 1, 1);
             }
         }
+
+        g.dispose();
+        ImageIO.write(img, "PNG", new File(path));
+    }
+
+    private static void generateMonitorFrontTexture(String path) throws IOException {
+        BufferedImage img = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+
+        g.setColor(BLACK);
+        g.fillRect(0, 0, SIZE, SIZE);
+
+        g.setColor(DARK_GRAY);
+        g.drawRect(0, 0, SIZE - 1, SIZE - 1);
+
+        g.dispose();
+        ImageIO.write(img, "PNG", new File(path));
+    }
+
+    private static void generateMonitorFrameTexture(String path) throws IOException {
+        BufferedImage img = new BufferedImage(SIZE, SIZE, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+
+        g.setColor(GRAY);
+        g.fillRect(0, 0, SIZE, SIZE);
+
+        g.setColor(DARK_GRAY);
+        g.drawRect(0, 0, SIZE - 1, SIZE - 1);
+
+        g.setColor(LIGHT_GRAY);
+        g.drawLine(1, 1, SIZE - 2, 1);
+        g.drawLine(1, 1, 1, SIZE - 2);
 
         g.dispose();
         ImageIO.write(img, "PNG", new File(path));

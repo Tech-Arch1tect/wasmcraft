@@ -1,5 +1,6 @@
 {
   "block.wasmcraft.computer_block": "Computer",
+  "block.wasmcraft.monitor_block": "Monitor",
   "itemGroup.wasmcraft.wasmcraft_tab": "Wasmcraft",
   "container.wasmcraft.computer": "Computer Terminal"
 }
