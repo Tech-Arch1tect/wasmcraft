@@ -102,16 +102,14 @@ public class MonitorRenderer implements BlockEntityRenderer<MonitorBlockEntity> 
         }
 
         RenderSystem.setShaderTexture(0, monitorTex.location);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
 
-        VertexConsumer consumer = bufferSource.getBuffer(RenderType.textSeeThrough(monitorTex.location));
+        VertexConsumer consumer = bufferSource.getBuffer(RenderType.entityCutout(monitorTex.location));
         Matrix4f matrix = poseStack.last().pose();
 
-        consumer.addVertex(matrix, 0, 1, 0).setColor(255, 255, 255, 255).setUv(0, 0).setLight(light);
-        consumer.addVertex(matrix, 1, 1, 0).setColor(255, 255, 255, 255).setUv(1, 0).setLight(light);
-        consumer.addVertex(matrix, 1, 0, 0).setColor(255, 255, 255, 255).setUv(1, 1).setLight(light);
-        consumer.addVertex(matrix, 0, 0, 0).setColor(255, 255, 255, 255).setUv(0, 1).setLight(light);
+        consumer.addVertex(matrix, 0, 1, 0).setColor(255, 255, 255, 255).setUv(0, 0).setOverlay(overlay).setLight(15728880).setNormal(0, 0, 1);
+        consumer.addVertex(matrix, 1, 1, 0).setColor(255, 255, 255, 255).setUv(1, 0).setOverlay(overlay).setLight(15728880).setNormal(0, 0, 1);
+        consumer.addVertex(matrix, 1, 0, 0).setColor(255, 255, 255, 255).setUv(1, 1).setOverlay(overlay).setLight(15728880).setNormal(0, 0, 1);
+        consumer.addVertex(matrix, 0, 0, 0).setColor(255, 255, 255, 255).setUv(0, 1).setOverlay(overlay).setLight(15728880).setNormal(0, 0, 1);
 
         poseStack.popPose();
     }
