@@ -19,11 +19,14 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
 import uk.co.techarchitect.wasmcraft.network.ComputerOutputSyncPacket;
 import uk.co.techarchitect.wasmcraft.peripheral.Peripheral;
 import uk.co.techarchitect.wasmcraft.peripheral.PeripheralManager;
 import uk.co.techarchitect.wasmcraft.wasm.WasmExecutor;
+import uk.co.techarchitect.wasmcraft.wasm.context.MonitorContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.PeripheralContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.RedstoneContext;
 
@@ -37,7 +40,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProvider, RedstoneContext, PeripheralContext {
+public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProvider, RedstoneContext, PeripheralContext, MonitorContext {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ComputerBlockEntity.class);
     private static final int MAX_HISTORY_LINES = 100;
     private static final double PERIPHERAL_RANGE = 16.0;
 
@@ -93,10 +97,13 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
     public com.dylibso.chicory.runtime.HostFunction[] toHostFunctions() {
         com.dylibso.chicory.runtime.HostFunction[] redstone = RedstoneContext.super.toHostFunctions();
         com.dylibso.chicory.runtime.HostFunction[] peripheral = PeripheralContext.super.toHostFunctions();
+        com.dylibso.chicory.runtime.HostFunction[] monitor = MonitorContext.super.toHostFunctions();
 
-        com.dylibso.chicory.runtime.HostFunction[] combined = new com.dylibso.chicory.runtime.HostFunction[redstone.length + peripheral.length];
+        com.dylibso.chicory.runtime.HostFunction[] combined = new com.dylibso.chicory.runtime.HostFunction[
+            redstone.length + peripheral.length + monitor.length];
         System.arraycopy(redstone, 0, combined, 0, redstone.length);
         System.arraycopy(peripheral, 0, combined, redstone.length, peripheral.length);
+        System.arraycopy(monitor, 0, combined, redstone.length + peripheral.length, monitor.length);
 
         return combined;
     }
@@ -172,12 +179,16 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         }
 
         double distance = Math.sqrt(worldPosition.distSqr(peripheral.getPosition()));
+
         if (distance > PERIPHERAL_RANGE) {
             return "ERROR: Peripheral out of range";
         }
 
         connectedPeripherals.put(label, peripheral.getId());
-        setChanged();
+
+        if (level != null && !level.isClientSide) {
+            level.getServer().execute(this::setChanged);
+        }
 
         return "Connected to " + label + " (" + peripheral.getPeripheralType() + ")";
     }
@@ -186,6 +197,65 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
     public void disconnectPeripheral(String peripheralId) {
         connectedPeripherals.entrySet().removeIf(entry -> entry.getValue().toString().equals(peripheralId));
         setChanged();
+    }
+
+    @Override
+    public void setPixel(String monitorId, int x, int y, int r, int g, int b) {
+        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
+        if (monitor == null) {
+            return;
+        }
+        monitor.setPixel(x, y, r, g, b);
+    }
+
+    @Override
+    public int[] getPixel(String monitorId, int x, int y) {
+        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
+        if (monitor == null) {
+            return new int[]{0, 0, 0};
+        }
+        return monitor.getPixel(x, y);
+    }
+
+    @Override
+    public void clear(String monitorId, int r, int g, int b) {
+        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
+        if (monitor == null) {
+            return;
+        }
+        monitor.clear(r, g, b);
+    }
+
+    @Override
+    public int[] getSize(String monitorId) {
+        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
+        if (monitor == null) {
+            return new int[]{0, 0};
+        }
+        int res = monitor.getResolution();
+        return new int[]{res, res};
+    }
+
+    private MonitorBlockEntity getConnectedMonitor(String monitorId) {
+        if (level == null || level.isClientSide) {
+            return null;
+        }
+
+        UUID peripheralUUID = connectedPeripherals.get(monitorId);
+        if (peripheralUUID == null) {
+            return null;
+        }
+
+        Peripheral peripheral = PeripheralManager.getInstance().findById(peripheralUUID);
+        if (peripheral == null) {
+            return null;
+        }
+
+        if (peripheral instanceof MonitorBlockEntity monitor) {
+            return monitor;
+        }
+
+        return null;
     }
 
     public List<String> getOutputHistory() {
