@@ -31,6 +31,8 @@ public interface MonitorContext extends WasmContext {
 
     int[] measureText(String monitorId, String text, int scale);
 
+    void copyRegion(String monitorId, int srcX, int srcY, int width, int height, int dstX, int dstY);
+
     @Override
     default HostFunction[] toHostFunctions() {
         return new HostFunction[] {
@@ -349,6 +351,31 @@ public interface MonitorContext extends WasmContext {
                     instance.memory().writeI32(resultPtr + 4, dimensions[1]);
 
                     return new long[] { resultPtr };
+                }
+            ),
+            new HostFunction(
+                "env",
+                "monitor_copy_region",
+                List.of(ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32),
+                List.of(),
+                (instance, args) -> {
+                    int idPtr = (int) args[0];
+                    int idLen = (int) args[1];
+                    byte[] idBytes = new byte[idLen];
+                    for (int i = 0; i < idLen; i++) {
+                        idBytes[i] = (byte) instance.memory().read(idPtr + i);
+                    }
+                    String monitorId = new String(idBytes);
+
+                    int srcX = (int) args[2];
+                    int srcY = (int) args[3];
+                    int width = (int) args[4];
+                    int height = (int) args[5];
+                    int dstX = (int) args[6];
+                    int dstY = (int) args[7];
+
+                    copyRegion(monitorId, srcX, srcY, width, height, dstX, dstY);
+                    return null;
                 }
             )
         };

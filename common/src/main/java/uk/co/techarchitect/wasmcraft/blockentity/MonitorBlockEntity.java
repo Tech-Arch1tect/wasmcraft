@@ -492,6 +492,37 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         return pixels;
     }
 
+    public void copyRegion(int srcX, int srcY, int width, int height, int dstX, int dstY) {
+        MonitorBlockEntity controller = getController();
+        if (controller == null) {
+            return;
+        }
+
+        byte[] buffer = controller.pixels;
+        if (buffer == null) {
+            return;
+        }
+
+        int bufferWidth = controller.getPixelWidth();
+        int bufferHeight = controller.getPixelHeight();
+
+        uk.co.techarchitect.wasmcraft.drawing.MonitorDrawing.copyRegion(
+            buffer, bufferWidth, bufferHeight, srcX, srcY, width, height, dstX, dstY
+        );
+
+        int x1 = Math.max(0, Math.min(bufferWidth - 1, Math.min(srcX, dstX)));
+        int y1 = Math.max(0, Math.min(bufferHeight - 1, Math.min(srcY, dstY)));
+        int x2 = Math.max(0, Math.min(bufferWidth - 1, Math.max(srcX + width - 1, dstX + width - 1)));
+        int y2 = Math.max(0, Math.min(bufferHeight - 1, Math.max(srcY + height - 1, dstY + height - 1)));
+
+        controller.markDirty(x1, y1);
+        controller.markDirty(x2, y2);
+
+        if (level != null && !level.isClientSide) {
+            level.getServer().execute(controller::setChanged);
+        }
+    }
+
     private void markDirty(int x, int y) {
         dirtyMinX = Math.min(dirtyMinX, x);
         dirtyMinY = Math.min(dirtyMinY, y);

@@ -322,6 +322,15 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         return monitor.measureText(text, scale);
     }
 
+    @Override
+    public void copyRegion(String monitorId, int srcX, int srcY, int width, int height, int dstX, int dstY) {
+        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
+        if (monitor == null) {
+            return;
+        }
+        monitor.copyRegion(srcX, srcY, width, height, dstX, dstY);
+    }
+
     private MonitorBlockEntity getConnectedMonitor(String monitorId) {
         if (level == null || level.isClientSide) {
             return null;
