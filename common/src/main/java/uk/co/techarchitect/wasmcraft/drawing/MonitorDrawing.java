@@ -29,4 +29,25 @@ public class MonitorDrawing {
             }
         }
     }
+
+    public static void drawHLine(byte[] pixels, int bufferWidth, int bufferHeight,
+                                 int x, int y, int length,
+                                 int r, int g, int b) {
+        fillRect(pixels, bufferWidth, bufferHeight, x, y, length, 1, r, g, b);
+    }
+
+    public static void drawVLine(byte[] pixels, int bufferWidth, int bufferHeight,
+                                 int x, int y, int length,
+                                 int r, int g, int b) {
+        fillRect(pixels, bufferWidth, bufferHeight, x, y, 1, length, r, g, b);
+    }
+
+    public static void drawRect(byte[] pixels, int bufferWidth, int bufferHeight,
+                                int x, int y, int width, int height,
+                                int r, int g, int b) {
+        drawHLine(pixels, bufferWidth, bufferHeight, x, y, width, r, g, b);
+        drawHLine(pixels, bufferWidth, bufferHeight, x, y + height - 1, width, r, g, b);
+        drawVLine(pixels, bufferWidth, bufferHeight, x, y, height, r, g, b);
+        drawVLine(pixels, bufferWidth, bufferHeight, x + width - 1, y, height, r, g, b);
+    }
 }

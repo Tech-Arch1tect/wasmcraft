@@ -19,6 +19,12 @@ public interface MonitorContext extends WasmContext {
 
     void fillRect(String monitorId, int x, int y, int width, int height, int r, int g, int b);
 
+    void drawHLine(String monitorId, int x, int y, int length, int r, int g, int b);
+
+    void drawVLine(String monitorId, int x, int y, int length, int r, int g, int b);
+
+    void drawRect(String monitorId, int x, int y, int width, int height, int r, int g, int b);
+
     @Override
     default HostFunction[] toHostFunctions() {
         return new HostFunction[] {
@@ -162,6 +168,82 @@ public interface MonitorContext extends WasmContext {
                     int b = (int) args[8];
 
                     fillRect(monitorId, x, y, width, height, r, g, b);
+                    return null;
+                }
+            ),
+            new HostFunction(
+                "env",
+                "monitor_draw_hline",
+                List.of(ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32),
+                List.of(),
+                (instance, args) -> {
+                    int idPtr = (int) args[0];
+                    int idLen = (int) args[1];
+                    byte[] idBytes = new byte[idLen];
+                    for (int i = 0; i < idLen; i++) {
+                        idBytes[i] = (byte) instance.memory().read(idPtr + i);
+                    }
+                    String monitorId = new String(idBytes);
+
+                    int x = (int) args[2];
+                    int y = (int) args[3];
+                    int length = (int) args[4];
+                    int r = (int) args[5];
+                    int g = (int) args[6];
+                    int b = (int) args[7];
+
+                    drawHLine(monitorId, x, y, length, r, g, b);
+                    return null;
+                }
+            ),
+            new HostFunction(
+                "env",
+                "monitor_draw_vline",
+                List.of(ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32),
+                List.of(),
+                (instance, args) -> {
+                    int idPtr = (int) args[0];
+                    int idLen = (int) args[1];
+                    byte[] idBytes = new byte[idLen];
+                    for (int i = 0; i < idLen; i++) {
+                        idBytes[i] = (byte) instance.memory().read(idPtr + i);
+                    }
+                    String monitorId = new String(idBytes);
+
+                    int x = (int) args[2];
+                    int y = (int) args[3];
+                    int length = (int) args[4];
+                    int r = (int) args[5];
+                    int g = (int) args[6];
+                    int b = (int) args[7];
+
+                    drawVLine(monitorId, x, y, length, r, g, b);
+                    return null;
+                }
+            ),
+            new HostFunction(
+                "env",
+                "monitor_draw_rect",
+                List.of(ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32),
+                List.of(),
+                (instance, args) -> {
+                    int idPtr = (int) args[0];
+                    int idLen = (int) args[1];
+                    byte[] idBytes = new byte[idLen];
+                    for (int i = 0; i < idLen; i++) {
+                        idBytes[i] = (byte) instance.memory().read(idPtr + i);
+                    }
+                    String monitorId = new String(idBytes);
+
+                    int x = (int) args[2];
+                    int y = (int) args[3];
+                    int width = (int) args[4];
+                    int height = (int) args[5];
+                    int r = (int) args[6];
+                    int g = (int) args[7];
+                    int b = (int) args[8];
+
+                    drawRect(monitorId, x, y, width, height, r, g, b);
                     return null;
                 }
             )

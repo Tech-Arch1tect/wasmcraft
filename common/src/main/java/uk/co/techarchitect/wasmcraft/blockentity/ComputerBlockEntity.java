@@ -268,6 +268,33 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         monitor.fillRect(x, y, width, height, r, g, b);
     }
 
+    @Override
+    public void drawHLine(String monitorId, int x, int y, int length, int r, int g, int b) {
+        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
+        if (monitor == null) {
+            return;
+        }
+        monitor.drawHLine(x, y, length, r, g, b);
+    }
+
+    @Override
+    public void drawVLine(String monitorId, int x, int y, int length, int r, int g, int b) {
+        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
+        if (monitor == null) {
+            return;
+        }
+        monitor.drawVLine(x, y, length, r, g, b);
+    }
+
+    @Override
+    public void drawRect(String monitorId, int x, int y, int width, int height, int r, int g, int b) {
+        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
+        if (monitor == null) {
+            return;
+        }
+        monitor.drawRect(x, y, width, height, r, g, b);
+    }
+
     private MonitorBlockEntity getConnectedMonitor(String monitorId) {
         if (level == null || level.isClientSide) {
             return null;
