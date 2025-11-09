@@ -38,6 +38,9 @@ func monitorDrawText(idPtr, idLen, x, y, textPtr, textLen, fgR, fgG, fgB, bgR, b
 //go:wasmimport env monitor_measure_text
 func monitorMeasureText(idPtr, idLen, textPtr, textLen, scale uint32) uint32
 
+//go:wasmimport env monitor_copy_region
+func monitorCopyRegion(idPtr, idLen, srcX, srcY, width, height, dstX, dstY uint32)
+
 func SetPixel(monitorID string, x, y, r, g, b int) {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
@@ -157,6 +160,14 @@ func MeasureText(monitorID string, text string, scale int) (width, height int) {
 	heightVal := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 4)))
 
 	return int(widthVal), int(heightVal)
+}
+
+func CopyRegion(monitorID string, srcX, srcY, width, height, dstX, dstY int) {
+	idBytes := []byte(monitorID)
+	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
+	idLen := uint32(len(idBytes))
+
+	monitorCopyRegion(idPtr, idLen, uint32(srcX), uint32(srcY), uint32(width), uint32(height), uint32(dstX), uint32(dstY))
 }
 
 type Color struct {
