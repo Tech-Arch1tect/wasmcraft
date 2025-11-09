@@ -17,6 +17,18 @@ func monitorGetSize(idPtr, idLen uint32) uint32
 //go:wasmimport env monitor_set_resolution
 func monitorSetResolution(idPtr, idLen, width, height uint32)
 
+//go:wasmimport env monitor_fill_rect
+func monitorFillRect(idPtr, idLen, x, y, width, height, r, g, b uint32)
+
+//go:wasmimport env monitor_draw_hline
+func monitorDrawHLine(idPtr, idLen, x, y, length, r, g, b uint32)
+
+//go:wasmimport env monitor_draw_vline
+func monitorDrawVLine(idPtr, idLen, x, y, length, r, g, b uint32)
+
+//go:wasmimport env monitor_draw_rect
+func monitorDrawRect(idPtr, idLen, x, y, width, height, r, g, b uint32)
+
 func SetPixel(monitorID string, x, y, r, g, b int) {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
@@ -66,6 +78,38 @@ func SetResolution(monitorID string, resolution int) {
 	idLen := uint32(len(idBytes))
 
 	monitorSetResolution(idPtr, idLen, uint32(resolution), uint32(resolution))
+}
+
+func FillRect(monitorID string, x, y, width, height, r, g, b int) {
+	idBytes := []byte(monitorID)
+	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
+	idLen := uint32(len(idBytes))
+
+	monitorFillRect(idPtr, idLen, uint32(x), uint32(y), uint32(width), uint32(height), uint32(r), uint32(g), uint32(b))
+}
+
+func DrawHLine(monitorID string, x, y, length, r, g, b int) {
+	idBytes := []byte(monitorID)
+	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
+	idLen := uint32(len(idBytes))
+
+	monitorDrawHLine(idPtr, idLen, uint32(x), uint32(y), uint32(length), uint32(r), uint32(g), uint32(b))
+}
+
+func DrawVLine(monitorID string, x, y, length, r, g, b int) {
+	idBytes := []byte(monitorID)
+	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
+	idLen := uint32(len(idBytes))
+
+	monitorDrawVLine(idPtr, idLen, uint32(x), uint32(y), uint32(length), uint32(r), uint32(g), uint32(b))
+}
+
+func DrawRect(monitorID string, x, y, width, height, r, g, b int) {
+	idBytes := []byte(monitorID)
+	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
+	idLen := uint32(len(idBytes))
+
+	monitorDrawRect(idPtr, idLen, uint32(x), uint32(y), uint32(width), uint32(height), uint32(r), uint32(g), uint32(b))
 }
 
 type Color struct {
