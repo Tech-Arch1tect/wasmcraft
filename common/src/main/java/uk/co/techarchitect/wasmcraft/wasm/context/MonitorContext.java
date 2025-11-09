@@ -25,6 +25,12 @@ public interface MonitorContext extends WasmContext {
 
     void drawRect(String monitorId, int x, int y, int width, int height, int r, int g, int b);
 
+    void drawChar(String monitorId, int x, int y, char c, int fgR, int fgG, int fgB, int bgR, int bgG, int bgB, int scale);
+
+    int drawText(String monitorId, int x, int y, String text, int fgR, int fgG, int fgB, int bgR, int bgG, int bgB, int scale);
+
+    int[] measureText(String monitorId, String text, int scale);
+
     @Override
     default HostFunction[] toHostFunctions() {
         return new HostFunction[] {
@@ -245,6 +251,104 @@ public interface MonitorContext extends WasmContext {
 
                     drawRect(monitorId, x, y, width, height, r, g, b);
                     return null;
+                }
+            ),
+            new HostFunction(
+                "env",
+                "monitor_draw_char",
+                List.of(ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32),
+                List.of(),
+                (instance, args) -> {
+                    int idPtr = (int) args[0];
+                    int idLen = (int) args[1];
+                    byte[] idBytes = new byte[idLen];
+                    for (int i = 0; i < idLen; i++) {
+                        idBytes[i] = (byte) instance.memory().read(idPtr + i);
+                    }
+                    String monitorId = new String(idBytes);
+
+                    int x = (int) args[2];
+                    int y = (int) args[3];
+                    char c = (char) args[4];
+                    int fgR = (int) args[5];
+                    int fgG = (int) args[6];
+                    int fgB = (int) args[7];
+                    int bgR = (int) args[8];
+                    int bgG = (int) args[9];
+                    int bgB = (int) args[10];
+                    int scale = (int) args[11];
+
+                    drawChar(monitorId, x, y, c, fgR, fgG, fgB, bgR, bgG, bgB, scale);
+                    return null;
+                }
+            ),
+            new HostFunction(
+                "env",
+                "monitor_draw_text",
+                List.of(ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32),
+                List.of(ValueType.I32),
+                (instance, args) -> {
+                    int idPtr = (int) args[0];
+                    int idLen = (int) args[1];
+                    byte[] idBytes = new byte[idLen];
+                    for (int i = 0; i < idLen; i++) {
+                        idBytes[i] = (byte) instance.memory().read(idPtr + i);
+                    }
+                    String monitorId = new String(idBytes);
+
+                    int x = (int) args[2];
+                    int y = (int) args[3];
+                    int textPtr = (int) args[4];
+                    int textLen = (int) args[5];
+                    byte[] textBytes = new byte[textLen];
+                    for (int i = 0; i < textLen; i++) {
+                        textBytes[i] = (byte) instance.memory().read(textPtr + i);
+                    }
+                    String text = new String(textBytes);
+
+                    int fgR = (int) args[6];
+                    int fgG = (int) args[7];
+                    int fgB = (int) args[8];
+                    int bgR = (int) args[9];
+                    int bgG = (int) args[10];
+                    int bgB = (int) args[11];
+                    int scale = (int) args[12];
+
+                    int width = drawText(monitorId, x, y, text, fgR, fgG, fgB, bgR, bgG, bgB, scale);
+                    return new long[] { width };
+                }
+            ),
+            new HostFunction(
+                "env",
+                "monitor_measure_text",
+                List.of(ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32),
+                List.of(ValueType.I32),
+                (instance, args) -> {
+                    int idPtr = (int) args[0];
+                    int idLen = (int) args[1];
+                    byte[] idBytes = new byte[idLen];
+                    for (int i = 0; i < idLen; i++) {
+                        idBytes[i] = (byte) instance.memory().read(idPtr + i);
+                    }
+                    String monitorId = new String(idBytes);
+
+                    int textPtr = (int) args[2];
+                    int textLen = (int) args[3];
+                    byte[] textBytes = new byte[textLen];
+                    for (int i = 0; i < textLen; i++) {
+                        textBytes[i] = (byte) instance.memory().read(textPtr + i);
+                    }
+                    String text = new String(textBytes);
+
+                    int scale = (int) args[4];
+
+                    int[] dimensions = measureText(monitorId, text, scale);
+
+                    int resultPtr = 24576;
+                    instance.memory().writeI32(resultPtr, dimensions[0]);
+                    instance.memory().writeI32(resultPtr + 4, dimensions[1]);
+
+                    return new long[] { resultPtr };
                 }
             )
         };

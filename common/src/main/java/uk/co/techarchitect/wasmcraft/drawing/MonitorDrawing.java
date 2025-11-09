@@ -50,4 +50,40 @@ public class MonitorDrawing {
         drawVLine(pixels, bufferWidth, bufferHeight, x, y, height, r, g, b);
         drawVLine(pixels, bufferWidth, bufferHeight, x + width - 1, y, height, r, g, b);
     }
+
+    public static void drawChar(byte[] pixels, int bufferWidth, int bufferHeight,
+                                int x, int y, char c,
+                                int fgR, int fgG, int fgB,
+                                int bgR, int bgG, int bgB,
+                                int scale) {
+        BitmapFont.renderChar(pixels, bufferWidth, bufferHeight, x, y, c,
+                            fgR, fgG, fgB, bgR, bgG, bgB, scale);
+    }
+
+    public static int drawText(byte[] pixels, int bufferWidth, int bufferHeight,
+                               int x, int y, String text,
+                               int fgR, int fgG, int fgB,
+                               int bgR, int bgG, int bgB,
+                               int scale) {
+        int currentX = x;
+        int charWidth = BitmapFont.getCharWidth(scale);
+
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            BitmapFont.renderChar(pixels, bufferWidth, bufferHeight,
+                                currentX, y, c,
+                                fgR, fgG, fgB, bgR, bgG, bgB, scale);
+            currentX += charWidth;
+        }
+
+        return currentX - x;
+    }
+
+    public static int measureTextWidth(String text, int scale) {
+        return text.length() * BitmapFont.getCharWidth(scale);
+    }
+
+    public static int measureTextHeight(int scale) {
+        return BitmapFont.getCharHeight(scale);
+    }
 }

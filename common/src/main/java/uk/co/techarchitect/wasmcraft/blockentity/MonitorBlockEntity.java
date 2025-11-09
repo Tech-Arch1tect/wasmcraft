@@ -413,6 +413,81 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         }
     }
 
+    public void drawChar(int x, int y, char c, int fgR, int fgG, int fgB, int bgR, int bgG, int bgB, int scale) {
+        MonitorBlockEntity controller = getController();
+        if (controller == null) {
+            return;
+        }
+
+        byte[] buffer = controller.pixels;
+        if (buffer == null) {
+            return;
+        }
+
+        int bufferWidth = controller.getPixelWidth();
+        int bufferHeight = controller.getPixelHeight();
+
+        uk.co.techarchitect.wasmcraft.drawing.MonitorDrawing.drawChar(
+            buffer, bufferWidth, bufferHeight, x, y, c, fgR, fgG, fgB, bgR, bgG, bgB, scale
+        );
+
+        int charWidth = uk.co.techarchitect.wasmcraft.drawing.BitmapFont.getCharWidth(scale);
+        int charHeight = uk.co.techarchitect.wasmcraft.drawing.BitmapFont.getCharHeight(scale);
+
+        int x1 = Math.max(0, Math.min(bufferWidth - 1, x));
+        int y1 = Math.max(0, Math.min(bufferHeight - 1, y));
+        int x2 = Math.max(0, Math.min(bufferWidth - 1, x + charWidth - 1));
+        int y2 = Math.max(0, Math.min(bufferHeight - 1, y + charHeight - 1));
+
+        controller.markDirty(x1, y1);
+        controller.markDirty(x2, y2);
+
+        if (level != null && !level.isClientSide) {
+            level.getServer().execute(controller::setChanged);
+        }
+    }
+
+    public int drawText(int x, int y, String text, int fgR, int fgG, int fgB, int bgR, int bgG, int bgB, int scale) {
+        MonitorBlockEntity controller = getController();
+        if (controller == null) {
+            return 0;
+        }
+
+        byte[] buffer = controller.pixels;
+        if (buffer == null) {
+            return 0;
+        }
+
+        int bufferWidth = controller.getPixelWidth();
+        int bufferHeight = controller.getPixelHeight();
+
+        int width = uk.co.techarchitect.wasmcraft.drawing.MonitorDrawing.drawText(
+            buffer, bufferWidth, bufferHeight, x, y, text, fgR, fgG, fgB, bgR, bgG, bgB, scale
+        );
+
+        int textHeight = uk.co.techarchitect.wasmcraft.drawing.BitmapFont.getCharHeight(scale);
+
+        int x1 = Math.max(0, Math.min(bufferWidth - 1, x));
+        int y1 = Math.max(0, Math.min(bufferHeight - 1, y));
+        int x2 = Math.max(0, Math.min(bufferWidth - 1, x + width - 1));
+        int y2 = Math.max(0, Math.min(bufferHeight - 1, y + textHeight - 1));
+
+        controller.markDirty(x1, y1);
+        controller.markDirty(x2, y2);
+
+        if (level != null && !level.isClientSide) {
+            level.getServer().execute(controller::setChanged);
+        }
+
+        return width;
+    }
+
+    public int[] measureText(String text, int scale) {
+        int width = uk.co.techarchitect.wasmcraft.drawing.MonitorDrawing.measureTextWidth(text, scale);
+        int height = uk.co.techarchitect.wasmcraft.drawing.MonitorDrawing.measureTextHeight(scale);
+        return new int[]{width, height};
+    }
+
     public byte[] getPixelData() {
         return pixels;
     }
