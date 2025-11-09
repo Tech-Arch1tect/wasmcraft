@@ -27,9 +27,15 @@ func (v *VBox) MinSize(monitorID string) (width, height int) {
 
 	maxWidth := 0
 	totalHeight := 0
+	hasFlexChildren := false
 
 	for i, child := range v.Children {
 		w, h := child.MinSize(monitorID)
+
+		if _, ok := child.(*FlexChild); ok {
+			hasFlexChildren = true
+		}
+
 		if w > maxWidth {
 			maxWidth = w
 		}
@@ -37,6 +43,10 @@ func (v *VBox) MinSize(monitorID string) (width, height int) {
 		if i < len(v.Children)-1 {
 			totalHeight += v.Spacing
 		}
+	}
+
+	if hasFlexChildren {
+		return maxWidth, 0
 	}
 
 	return maxWidth, totalHeight
@@ -47,10 +57,43 @@ func (v *VBox) Render(monitorID string, region Rect) {
 		return
 	}
 
+	totalMinHeight := 0
+	totalFlex := 0
+	childSizes := make([]struct{ w, h, flex int }, len(v.Children))
+
+	for i, child := range v.Children {
+		w, h := child.MinSize(monitorID)
+		childSizes[i].w = w
+		childSizes[i].h = h
+		childSizes[i].flex = 0
+
+		if flexChild, ok := child.(*FlexChild); ok {
+			childSizes[i].flex = flexChild.Flex
+			totalFlex += flexChild.Flex
+		}
+
+		totalMinHeight += h
+		if i < len(v.Children)-1 {
+			totalMinHeight += v.Spacing
+		}
+	}
+
+	remainingHeight := region.Height - totalMinHeight
+
 	y := region.Y
 
-	for _, child := range v.Children {
-		w, h := child.MinSize(monitorID)
+	for i, child := range v.Children {
+		h := childSizes[i].h
+		flex := childSizes[i].flex
+
+		if flex > 0 && totalFlex > 0 && remainingHeight > 0 {
+			extraHeight := (remainingHeight * flex) / totalFlex
+			h += extraHeight
+		}
+
+		if h <= 0 {
+			continue
+		}
 
 		if y+h > region.Y+region.Height {
 			break
@@ -59,7 +102,7 @@ func (v *VBox) Render(monitorID string, region Rect) {
 		childRegion := Rect{
 			X:      region.X,
 			Y:      y,
-			Width:  w,
+			Width:  region.Width,
 			Height: h,
 		}
 

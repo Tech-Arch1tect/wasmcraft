@@ -27,9 +27,15 @@ func (hb *HBox) MinSize(monitorID string) (width, height int) {
 
 	totalWidth := 0
 	maxHeight := 0
+	hasFlexChildren := false
 
 	for i, child := range hb.Children {
 		w, h := child.MinSize(monitorID)
+
+		if _, ok := child.(*FlexChild); ok {
+			hasFlexChildren = true
+		}
+
 		totalWidth += w
 		if h > maxHeight {
 			maxHeight = h
@@ -37,6 +43,10 @@ func (hb *HBox) MinSize(monitorID string) (width, height int) {
 		if i < len(hb.Children)-1 {
 			totalWidth += hb.Spacing
 		}
+	}
+
+	if hasFlexChildren {
+		return 0, maxHeight
 	}
 
 	return totalWidth, maxHeight
@@ -47,10 +57,39 @@ func (hb *HBox) Render(monitorID string, region Rect) {
 		return
 	}
 
+	totalMinWidth := 0
+	totalFlex := 0
+	childSizes := make([]struct{ w, h, flex int }, len(hb.Children))
+
+	for i, child := range hb.Children {
+		w, h := child.MinSize(monitorID)
+		childSizes[i].w = w
+		childSizes[i].h = h
+		childSizes[i].flex = 0
+
+		if flexChild, ok := child.(*FlexChild); ok {
+			childSizes[i].flex = flexChild.Flex
+			totalFlex += flexChild.Flex
+		}
+
+		totalMinWidth += w
+		if i < len(hb.Children)-1 {
+			totalMinWidth += hb.Spacing
+		}
+	}
+
+	remainingWidth := region.Width - totalMinWidth
+
 	x := region.X
 
-	for _, child := range hb.Children {
-		w, h := child.MinSize(monitorID)
+	for i, child := range hb.Children {
+		w := childSizes[i].w
+		flex := childSizes[i].flex
+
+		if flex > 0 && totalFlex > 0 && remainingWidth > 0 {
+			extraWidth := (remainingWidth * flex) / totalFlex
+			w += extraWidth
+		}
 
 		if x+w > region.X+region.Width {
 			break
@@ -60,7 +99,7 @@ func (hb *HBox) Render(monitorID string, region Rect) {
 			X:      x,
 			Y:      region.Y,
 			Width:  w,
-			Height: h,
+			Height: region.Height,
 		}
 
 		child.Render(monitorID, childRegion)
