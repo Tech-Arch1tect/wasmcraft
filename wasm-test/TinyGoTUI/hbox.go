@@ -50,7 +50,7 @@ func (hb *HBox) Render(monitorID string, region Rect) {
 	x := region.X
 
 	for _, child := range hb.Children {
-		w, _ := child.MinSize(monitorID)
+		w, h := child.MinSize(monitorID)
 
 		if x+w > region.X+region.Width {
 			break
@@ -60,7 +60,7 @@ func (hb *HBox) Render(monitorID string, region Rect) {
 			X:      x,
 			Y:      region.Y,
 			Width:  w,
-			Height: region.Height,
+			Height: h,
 		}
 
 		child.Render(monitorID, childRegion)

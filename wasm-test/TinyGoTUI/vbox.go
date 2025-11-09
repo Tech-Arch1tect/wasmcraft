@@ -50,7 +50,7 @@ func (v *VBox) Render(monitorID string, region Rect) {
 	y := region.Y
 
 	for _, child := range v.Children {
-		_, h := child.MinSize(monitorID)
+		w, h := child.MinSize(monitorID)
 
 		if y+h > region.Y+region.Height {
 			break
@@ -59,7 +59,7 @@ func (v *VBox) Render(monitorID string, region Rect) {
 		childRegion := Rect{
 			X:      region.X,
 			Y:      y,
-			Width:  region.Width,
+			Width:  w,
 			Height: h,
 		}
 
