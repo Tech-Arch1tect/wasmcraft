@@ -291,6 +291,37 @@ public class MonitorBlockEntity extends PeripheralBlockEntity {
         }
     }
 
+    public void fillRect(int x, int y, int width, int height, int r, int g, int b) {
+        MonitorBlockEntity controller = getController();
+        if (controller == null) {
+            return;
+        }
+
+        byte[] buffer = controller.pixels;
+        if (buffer == null) {
+            return;
+        }
+
+        int bufferWidth = controller.getPixelWidth();
+        int bufferHeight = controller.getPixelHeight();
+
+        uk.co.techarchitect.wasmcraft.drawing.MonitorDrawing.fillRect(
+            buffer, bufferWidth, bufferHeight, x, y, width, height, r, g, b
+        );
+
+        int x1 = Math.max(0, Math.min(bufferWidth - 1, x));
+        int y1 = Math.max(0, Math.min(bufferHeight - 1, y));
+        int x2 = Math.max(0, Math.min(bufferWidth - 1, x + width - 1));
+        int y2 = Math.max(0, Math.min(bufferHeight - 1, y + height - 1));
+
+        controller.markDirty(x1, y1);
+        controller.markDirty(x2, y2);
+
+        if (level != null && !level.isClientSide) {
+            level.getServer().execute(controller::setChanged);
+        }
+    }
+
     public byte[] getPixelData() {
         return pixels;
     }

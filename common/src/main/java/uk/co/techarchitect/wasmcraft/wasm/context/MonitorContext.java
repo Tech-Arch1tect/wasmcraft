@@ -17,6 +17,8 @@ public interface MonitorContext extends WasmContext {
 
     void setResolution(String monitorId, int width, int height);
 
+    void fillRect(String monitorId, int x, int y, int width, int height, int r, int g, int b);
+
     @Override
     default HostFunction[] toHostFunctions() {
         return new HostFunction[] {
@@ -134,6 +136,32 @@ public interface MonitorContext extends WasmContext {
                     int height = (int) args[3];
 
                     setResolution(monitorId, width, height);
+                    return null;
+                }
+            ),
+            new HostFunction(
+                "env",
+                "monitor_fill_rect",
+                List.of(ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32, ValueType.I32),
+                List.of(),
+                (instance, args) -> {
+                    int idPtr = (int) args[0];
+                    int idLen = (int) args[1];
+                    byte[] idBytes = new byte[idLen];
+                    for (int i = 0; i < idLen; i++) {
+                        idBytes[i] = (byte) instance.memory().read(idPtr + i);
+                    }
+                    String monitorId = new String(idBytes);
+
+                    int x = (int) args[2];
+                    int y = (int) args[3];
+                    int width = (int) args[4];
+                    int height = (int) args[5];
+                    int r = (int) args[6];
+                    int g = (int) args[7];
+                    int b = (int) args[8];
+
+                    fillRect(monitorId, x, y, width, height, r, g, b);
                     return null;
                 }
             )
