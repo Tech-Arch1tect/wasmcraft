@@ -1,7 +1,13 @@
 package redstone
 
+import (
+	"unsafe"
+
+	"github.com/wasmcraft/bindings/errors"
+)
+
 //go:wasmimport env redstone_set
-func redstoneSet(side, power uint32)
+func redstoneSet(side, power uint32) uint32
 
 //go:wasmimport env redstone_get
 func redstoneGet(side uint32) uint32
@@ -52,9 +58,16 @@ func SetRedstone(side Side, power int) {
 	if power > 15 {
 		power = 15
 	}
-	redstoneSet(uint32(side), uint32(power))
+	errorCode := redstoneSet(uint32(side), uint32(power))
+	errors.Check(int(errorCode))
 }
 
 func GetRedstone(side Side) int {
-	return int(redstoneGet(uint32(side)))
+	resultPtr := redstoneGet(uint32(side))
+
+	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
+	power := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 4)))
+
+	errors.Check(int(errorCode))
+	return int(power)
 }
