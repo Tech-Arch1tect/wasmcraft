@@ -3,15 +3,16 @@ package uk.co.techarchitect.wasmcraft.wasm.context;
 import com.dylibso.chicory.runtime.HostFunction;
 import com.dylibso.chicory.wasm.types.ValueType;
 import uk.co.techarchitect.wasmcraft.wasm.WasmContext;
+import uk.co.techarchitect.wasmcraft.wasm.WasmErrorHelper;
 
 import java.util.List;
 
+import static uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.*;
+
 public interface PeripheralContext extends WasmContext {
-    String listPeripherals();
-
-    String connectPeripheral(String label);
-
-    void disconnectPeripheral(String peripheralId);
+    int listPeripherals(StringBuilder outJson);
+    int connectPeripheral(String label, StringBuilder outId);
+    int disconnectPeripheral(String peripheralId);
 
     @Override
     default HostFunction[] toHostFunctions() {
@@ -22,13 +23,26 @@ public interface PeripheralContext extends WasmContext {
                 List.of(ValueType.I32),
                 List.of(ValueType.I32),
                 (instance, args) -> {
-                    String json = listPeripherals();
+                    StringBuilder json = new StringBuilder();
+                    int errorCode = listPeripherals(json);
+
                     int ptr = (int) args[0];
-                    byte[] bytes = json.getBytes();
-                    for (int i = 0; i < bytes.length && i < 4096; i++) {
-                        instance.memory().writeByte(ptr + i, bytes[i]);
+                    int resultPtr = 12288;
+
+                    if (errorCode == SUCCESS) {
+                        byte[] bytes = json.toString().getBytes();
+                        int len = Math.min(bytes.length, 4096);
+                        for (int i = 0; i < len; i++) {
+                            instance.memory().writeByte(ptr + i, bytes[i]);
+                        }
+                        instance.memory().writeI32(resultPtr, SUCCESS);
+                        instance.memory().writeI32(resultPtr + 4, len);
+                    } else {
+                        WasmErrorHelper.writeErrorMessage(instance, getPeripheralErrorMessage(errorCode, ""));
+                        instance.memory().writeI32(resultPtr, errorCode);
+                        instance.memory().writeI32(resultPtr + 4, 0);
                     }
-                    return new long[] { bytes.length };
+                    return new long[] { resultPtr };
                 }
             ),
             new HostFunction(
@@ -37,40 +51,50 @@ public interface PeripheralContext extends WasmContext {
                 List.of(ValueType.I32, ValueType.I32),
                 List.of(ValueType.I32),
                 (instance, args) -> {
-                    int labelPtr = (int) args[0];
-                    int labelLen = (int) args[1];
-                    byte[] labelBytes = new byte[labelLen];
-                    for (int i = 0; i < labelLen; i++) {
-                        labelBytes[i] = (byte) instance.memory().read(labelPtr + i);
-                    }
-                    String label = new String(labelBytes);
-                    String result = connectPeripheral(label);
+                    String label = WasmErrorHelper.readString(instance, (int) args[0], (int) args[1]);
+                    StringBuilder id = new StringBuilder();
+                    int errorCode = connectPeripheral(label, id);
 
                     int resultPtr = 8192;
-                    byte[] resultBytes = result.getBytes();
-                    for (int i = 0; i < resultBytes.length && i < 4096; i++) {
-                        instance.memory().writeByte(resultPtr + i, resultBytes[i]);
+
+                    if (errorCode == SUCCESS) {
+                        byte[] resultBytes = id.toString().getBytes();
+                        int len = Math.min(resultBytes.length, 4096);
+                        for (int i = 0; i < len; i++) {
+                            instance.memory().writeByte(resultPtr + 4, resultBytes[i]);
+                        }
+                        instance.memory().writeI32(resultPtr, SUCCESS);
+                        instance.memory().writeI32(resultPtr + 4 + len, 0);
+                    } else {
+                        WasmErrorHelper.writeErrorMessage(instance, getPeripheralErrorMessage(errorCode, label));
+                        instance.memory().writeI32(resultPtr, errorCode);
                     }
-                    return new long[] { resultBytes.length };
+                    return new long[] { resultPtr };
                 }
             ),
             new HostFunction(
                 "env",
                 "peripheral_disconnect",
                 List.of(ValueType.I32, ValueType.I32),
-                List.of(),
+                List.of(ValueType.I32),
                 (instance, args) -> {
-                    int idPtr = (int) args[0];
-                    int idLen = (int) args[1];
-                    byte[] idBytes = new byte[idLen];
-                    for (int i = 0; i < idLen; i++) {
-                        idBytes[i] = (byte) instance.memory().read(idPtr + i);
+                    String peripheralId = WasmErrorHelper.readString(instance, (int) args[0], (int) args[1]);
+                    int errorCode = disconnectPeripheral(peripheralId);
+                    if (errorCode != SUCCESS) {
+                        WasmErrorHelper.writeErrorMessage(instance, getPeripheralErrorMessage(errorCode, peripheralId));
                     }
-                    String peripheralId = new String(idBytes);
-                    disconnectPeripheral(peripheralId);
-                    return null;
+                    return new long[] { errorCode };
                 }
             )
+        };
+    }
+
+    default String getPeripheralErrorMessage(int errorCode, String identifier) {
+        return switch (errorCode) {
+            case ERR_PERIPHERAL_NOT_FOUND -> "Peripheral '" + identifier + "' not found";
+            case ERR_PERIPHERAL_OUT_OF_RANGE -> "Peripheral '" + identifier + "' is out of range (max 16 blocks)";
+            case ERR_PERIPHERAL_NOT_CONNECTED -> "Peripheral '" + identifier + "' is not connected";
+            default -> "Unknown peripheral error: " + getErrorName(errorCode);
         };
     }
 }

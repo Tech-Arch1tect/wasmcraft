@@ -26,9 +26,12 @@ import uk.co.techarchitect.wasmcraft.network.ComputerOutputSyncPacket;
 import uk.co.techarchitect.wasmcraft.peripheral.Peripheral;
 import uk.co.techarchitect.wasmcraft.peripheral.PeripheralManager;
 import uk.co.techarchitect.wasmcraft.wasm.WasmExecutor;
+import uk.co.techarchitect.wasmcraft.wasm.WasmErrorHelper;
 import uk.co.techarchitect.wasmcraft.wasm.context.MonitorContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.PeripheralContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.RedstoneContext;
+
+import static uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -82,12 +85,14 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
     }
 
     @Override
-    public int getRedstoneInput(int relativeSide) {
+    public int getRedstoneInput(int relativeSide, int[] outPower) {
         if (relativeSide < 0 || relativeSide > 5) {
-            return 0;
+            outPower[0] = 0;
+            return ERR_REDSTONE_INVALID_SIDE;
         }
         Direction worldDir = relativeToWorldDirection(relativeSide);
-        return redstoneInputs[worldDir.get3DDataValue()];
+        outPower[0] = redstoneInputs[worldDir.get3DDataValue()];
+        return SUCCESS;
     }
 
     public void setOwner(UUID owner) {
@@ -120,18 +125,23 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
     }
 
     @Override
-    public void setRedstoneOutput(int relativeSide, int power) {
-        if (relativeSide >= 0 && relativeSide <= 5) {
-            Direction worldDir = relativeToWorldDirection(relativeSide);
-            int worldIndex = worldDir.get3DDataValue();
-            redstoneOutputs[worldIndex] = Math.max(0, Math.min(15, power));
-            if (level != null && !level.isClientSide) {
-                level.getServer().execute(() -> {
-                    level.updateNeighborsAt(worldPosition, getBlockState().getBlock());
-                    setChanged();
-                });
-            }
+    public int setRedstoneOutput(int relativeSide, int power) {
+        if (relativeSide < 0 || relativeSide > 5) {
+            return ERR_REDSTONE_INVALID_SIDE;
         }
+        if (power < 0 || power > 15) {
+            return ERR_REDSTONE_INVALID_POWER;
+        }
+        Direction worldDir = relativeToWorldDirection(relativeSide);
+        int worldIndex = worldDir.get3DDataValue();
+        redstoneOutputs[worldIndex] = power;
+        if (level != null && !level.isClientSide) {
+            level.getServer().execute(() -> {
+                level.updateNeighborsAt(worldPosition, getBlockState().getBlock());
+                setChanged();
+            });
+        }
+        return SUCCESS;
     }
 
     public int getRedstoneOutput(Direction worldDirection) {
@@ -143,39 +153,41 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
     }
 
     @Override
-    public String listPeripherals() {
+    public int listPeripherals(StringBuilder outJson) {
         if (owner == null || level == null || level.isClientSide) {
-            return "[]";
+            outJson.append("[]");
+            return SUCCESS;
         }
 
         List<Peripheral> peripherals = PeripheralManager.getInstance()
                 .findInRange(worldPosition, PERIPHERAL_RANGE, owner);
 
-        StringBuilder json = new StringBuilder("[");
+        outJson.append("[");
         for (int i = 0; i < peripherals.size(); i++) {
-            if (i > 0) json.append(",");
+            if (i > 0) outJson.append(",");
             Peripheral p = peripherals.get(i);
-            json.append("{");
-            json.append("\"type\":\"").append(p.getPeripheralType()).append("\",");
-            json.append("\"label\":\"").append(p.getLabel()).append("\"");
-            json.append("}");
+            outJson.append("{");
+            outJson.append("\"type\":\"").append(p.getPeripheralType()).append("\",");
+            outJson.append("\"label\":\"").append(p.getLabel()).append("\"");
+            outJson.append("}");
         }
-        json.append("]");
+        outJson.append("]");
 
-        return json.toString();
+        return SUCCESS;
     }
 
     @Override
-    public String connectPeripheral(String label) {
+    public int connectPeripheral(String label, StringBuilder outId) {
         if (owner == null || level == null || level.isClientSide) {
-            return "ERROR: Not initialized";
+            return ERR_INVALID_PARAMETER;
         }
 
         if (connectedPeripherals.containsKey(label)) {
             UUID existingUUID = connectedPeripherals.get(label);
             Peripheral existing = PeripheralManager.getInstance().findById(existingUUID);
             if (existing != null) {
-                return "ERROR: Already connected to " + label;
+                outId.append(label);
+                return SUCCESS;
             } else {
                 connectedPeripherals.remove(label);
             }
@@ -183,13 +195,13 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
         Peripheral peripheral = PeripheralManager.getInstance().findByLabel(label, owner);
         if (peripheral == null) {
-            return "ERROR: Peripheral not found: " + label;
+            return ERR_PERIPHERAL_NOT_FOUND;
         }
 
         double distance = Math.sqrt(worldPosition.distSqr(peripheral.getPosition()));
 
         if (distance > PERIPHERAL_RANGE) {
-            return "ERROR: Peripheral out of range";
+            return ERR_PERIPHERAL_OUT_OF_RANGE;
         }
 
         connectedPeripherals.put(label, peripheral.getId());
@@ -198,137 +210,213 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
             level.getServer().execute(this::setChanged);
         }
 
-        String result = "Connected to " + label + " (" + peripheral.getPeripheralType() + ")";
-        return result;
+        outId.append(label);
+        return SUCCESS;
     }
 
     @Override
-    public void disconnectPeripheral(String peripheralId) {
-        connectedPeripherals.entrySet().removeIf(entry -> entry.getValue().toString().equals(peripheralId));
+    public int disconnectPeripheral(String peripheralId) {
+        boolean removed = connectedPeripherals.entrySet().removeIf(entry -> entry.getValue().toString().equals(peripheralId));
+        if (!removed) {
+            return ERR_PERIPHERAL_NOT_CONNECTED;
+        }
         setChanged();
+        return SUCCESS;
     }
 
     @Override
-    public void setPixel(String monitorId, int x, int y, int r, int g, int b) {
+    public int setPixel(String monitorId, int x, int y, int r, int g, int b) {
+        if (!WasmErrorHelper.isValidColor(r) || !WasmErrorHelper.isValidColor(g) || !WasmErrorHelper.isValidColor(b)) {
+            return ERR_MONITOR_INVALID_COLOR;
+        }
         MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
         if (monitor == null) {
-            return;
+            return ERR_MONITOR_NOT_FOUND;
         }
         monitor.setPixel(x, y, r, g, b);
+        return SUCCESS;
     }
 
     @Override
-    public int[] getPixel(String monitorId, int x, int y) {
+    public int getPixel(String monitorId, int x, int y, int[] outRgb) {
         MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
         if (monitor == null) {
-            return new int[]{0, 0, 0};
+            outRgb[0] = 0;
+            outRgb[1] = 0;
+            outRgb[2] = 0;
+            return ERR_MONITOR_NOT_FOUND;
         }
-        return monitor.getPixel(x, y);
+        int[] rgb = monitor.getPixel(x, y);
+        outRgb[0] = rgb[0];
+        outRgb[1] = rgb[1];
+        outRgb[2] = rgb[2];
+        return SUCCESS;
     }
 
     @Override
-    public void clear(String monitorId, int r, int g, int b) {
+    public int clear(String monitorId, int r, int g, int b) {
+        if (!WasmErrorHelper.isValidColor(r) || !WasmErrorHelper.isValidColor(g) || !WasmErrorHelper.isValidColor(b)) {
+            return ERR_MONITOR_INVALID_COLOR;
+        }
         MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
         if (monitor == null) {
-            return;
+            return ERR_MONITOR_NOT_FOUND;
         }
         monitor.clear(r, g, b);
+        return SUCCESS;
     }
 
     @Override
-    public int[] getSize(String monitorId) {
+    public int getSize(String monitorId, int[] outSize) {
         MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
         if (monitor == null) {
-            return new int[]{0, 0};
+            outSize[0] = 0;
+            outSize[1] = 0;
+            return ERR_MONITOR_NOT_FOUND;
         }
         MonitorBlockEntity controller = monitor.getController();
         if (controller == null) {
-            return new int[]{0, 0};
+            outSize[0] = 0;
+            outSize[1] = 0;
+            return ERR_MONITOR_DISCONNECTED;
         }
-        return new int[]{controller.getPixelWidth(), controller.getPixelHeight()};
+        outSize[0] = controller.getPixelWidth();
+        outSize[1] = controller.getPixelHeight();
+        return SUCCESS;
     }
 
     @Override
-    public void setResolution(String monitorId, int width, int height) {
+    public int setResolution(String monitorId, int width, int height) {
         MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
         if (monitor == null) {
-            return;
+            return ERR_MONITOR_NOT_FOUND;
         }
-        if (width == height) {
-            monitor.setResolution(width);
+        if (width != height || width < 1 || width > 256) {
+            return ERR_MONITOR_INVALID_RESOLUTION;
         }
+        monitor.setResolution(width);
+        return SUCCESS;
     }
 
     @Override
-    public void fillRect(String monitorId, int x, int y, int width, int height, int r, int g, int b) {
+    public int fillRect(String monitorId, int x, int y, int width, int height, int r, int g, int b) {
+        if (!WasmErrorHelper.isValidColor(r) || !WasmErrorHelper.isValidColor(g) || !WasmErrorHelper.isValidColor(b)) {
+            return ERR_MONITOR_INVALID_COLOR;
+        }
         MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
         if (monitor == null) {
-            return;
+            return ERR_MONITOR_NOT_FOUND;
         }
         monitor.fillRect(x, y, width, height, r, g, b);
+        return SUCCESS;
     }
 
     @Override
-    public void drawHLine(String monitorId, int x, int y, int length, int r, int g, int b) {
+    public int drawHLine(String monitorId, int x, int y, int length, int r, int g, int b) {
+        if (!WasmErrorHelper.isValidColor(r) || !WasmErrorHelper.isValidColor(g) || !WasmErrorHelper.isValidColor(b)) {
+            return ERR_MONITOR_INVALID_COLOR;
+        }
         MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
         if (monitor == null) {
-            return;
+            return ERR_MONITOR_NOT_FOUND;
         }
         monitor.drawHLine(x, y, length, r, g, b);
+        return SUCCESS;
     }
 
     @Override
-    public void drawVLine(String monitorId, int x, int y, int length, int r, int g, int b) {
+    public int drawVLine(String monitorId, int x, int y, int length, int r, int g, int b) {
+        if (!WasmErrorHelper.isValidColor(r) || !WasmErrorHelper.isValidColor(g) || !WasmErrorHelper.isValidColor(b)) {
+            return ERR_MONITOR_INVALID_COLOR;
+        }
         MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
         if (monitor == null) {
-            return;
+            return ERR_MONITOR_NOT_FOUND;
         }
         monitor.drawVLine(x, y, length, r, g, b);
+        return SUCCESS;
     }
 
     @Override
-    public void drawRect(String monitorId, int x, int y, int width, int height, int r, int g, int b) {
+    public int drawRect(String monitorId, int x, int y, int width, int height, int r, int g, int b) {
+        if (!WasmErrorHelper.isValidColor(r) || !WasmErrorHelper.isValidColor(g) || !WasmErrorHelper.isValidColor(b)) {
+            return ERR_MONITOR_INVALID_COLOR;
+        }
         MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
         if (monitor == null) {
-            return;
+            return ERR_MONITOR_NOT_FOUND;
         }
         monitor.drawRect(x, y, width, height, r, g, b);
+        return SUCCESS;
     }
 
     @Override
-    public void drawChar(String monitorId, int x, int y, char c, int fgR, int fgG, int fgB, int bgR, int bgG, int bgB, int scale) {
+    public int drawChar(String monitorId, int x, int y, char c, int fgR, int fgG, int fgB, int bgR, int bgG, int bgB, int scale) {
+        if (!WasmErrorHelper.isValidColor(fgR) || !WasmErrorHelper.isValidColor(fgG) || !WasmErrorHelper.isValidColor(fgB) ||
+            !WasmErrorHelper.isValidColor(bgR) || !WasmErrorHelper.isValidColor(bgG) || !WasmErrorHelper.isValidColor(bgB)) {
+            return ERR_MONITOR_INVALID_COLOR;
+        }
+        if (!WasmErrorHelper.isValidChar(c)) {
+            return ERR_MONITOR_INVALID_CHAR;
+        }
+        if (!WasmErrorHelper.isValidScale(scale)) {
+            return ERR_MONITOR_INVALID_SCALE;
+        }
         MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
         if (monitor == null) {
-            return;
+            return ERR_MONITOR_NOT_FOUND;
         }
         monitor.drawChar(x, y, c, fgR, fgG, fgB, bgR, bgG, bgB, scale);
+        return SUCCESS;
     }
 
     @Override
-    public int drawText(String monitorId, int x, int y, String text, int fgR, int fgG, int fgB, int bgR, int bgG, int bgB, int scale) {
-        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
-        if (monitor == null) {
-            return 0;
+    public int drawText(String monitorId, int x, int y, String text, int fgR, int fgG, int fgB, int bgR, int bgG, int bgB, int scale, int[] outWidth) {
+        if (!WasmErrorHelper.isValidColor(fgR) || !WasmErrorHelper.isValidColor(fgG) || !WasmErrorHelper.isValidColor(fgB) ||
+            !WasmErrorHelper.isValidColor(bgR) || !WasmErrorHelper.isValidColor(bgG) || !WasmErrorHelper.isValidColor(bgB)) {
+            outWidth[0] = 0;
+            return ERR_MONITOR_INVALID_COLOR;
         }
-        return monitor.drawText(x, y, text, fgR, fgG, fgB, bgR, bgG, bgB, scale);
-    }
-
-    @Override
-    public int[] measureText(String monitorId, String text, int scale) {
-        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
-        if (monitor == null) {
-            return new int[]{0, 0};
+        if (!WasmErrorHelper.isValidScale(scale)) {
+            outWidth[0] = 0;
+            return ERR_MONITOR_INVALID_SCALE;
         }
-        return monitor.measureText(text, scale);
+        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
+        if (monitor == null) {
+            outWidth[0] = 0;
+            return ERR_MONITOR_NOT_FOUND;
+        }
+        outWidth[0] = monitor.drawText(x, y, text, fgR, fgG, fgB, bgR, bgG, bgB, scale);
+        return SUCCESS;
     }
 
     @Override
-    public void copyRegion(String monitorId, int srcX, int srcY, int width, int height, int dstX, int dstY) {
+    public int measureText(String monitorId, String text, int scale, int[] outDimensions) {
+        if (!WasmErrorHelper.isValidScale(scale)) {
+            outDimensions[0] = 0;
+            outDimensions[1] = 0;
+            return ERR_MONITOR_INVALID_SCALE;
+        }
         MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
         if (monitor == null) {
-            return;
+            outDimensions[0] = 0;
+            outDimensions[1] = 0;
+            return ERR_MONITOR_NOT_FOUND;
+        }
+        int[] dimensions = monitor.measureText(text, scale);
+        outDimensions[0] = dimensions[0];
+        outDimensions[1] = dimensions[1];
+        return SUCCESS;
+    }
+
+    @Override
+    public int copyRegion(String monitorId, int srcX, int srcY, int width, int height, int dstX, int dstY) {
+        MonitorBlockEntity monitor = getConnectedMonitor(monitorId);
+        if (monitor == null) {
+            return ERR_MONITOR_NOT_FOUND;
         }
         monitor.copyRegion(srcX, srcY, width, height, dstX, dstY);
+        return SUCCESS;
     }
 
     private MonitorBlockEntity getConnectedMonitor(String monitorId) {
