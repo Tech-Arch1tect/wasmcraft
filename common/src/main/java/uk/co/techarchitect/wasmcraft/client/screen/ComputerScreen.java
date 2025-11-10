@@ -9,7 +9,9 @@ import net.minecraft.world.entity.player.Inventory;
 import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
 import uk.co.techarchitect.wasmcraft.network.ComputerCommandPacket;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
     private static final int BACKGROUND_COLOR = 0xFF1E1E1E;
@@ -21,6 +23,9 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
     private int scrollOffset = 0;
     private EditBox inputField;
     private int historyIndex = -1;
+    private List<String> tabCompletions = new ArrayList<>();
+    private int tabCompletionIndex = -1;
+    private String tabCompletionPrefix = "";
 
     public ComputerScreen(ComputerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
@@ -102,6 +107,13 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
                 return true;
             }
 
+            if (keyCode == 258) {
+                handleTabCompletion();
+                return true;
+            }
+
+            resetTabCompletion();
+
             if (inputField.keyPressed(keyCode, scanCode, modifiers)) {
                 return true;
             }
@@ -138,6 +150,63 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
             inputField.setValue(history.get(actualIndex));
             inputField.moveCursorToEnd(false);
         }
+    }
+
+    private void handleTabCompletion() {
+        String currentInput = inputField.getValue();
+
+        if (tabCompletions.isEmpty() || !currentInput.equals(tabCompletionPrefix)) {
+            tabCompletions = getCompletions(currentInput);
+            tabCompletionIndex = -1;
+            tabCompletionPrefix = currentInput;
+        }
+
+        if (tabCompletions.isEmpty()) {
+            return;
+        }
+
+        tabCompletionIndex = (tabCompletionIndex + 1) % tabCompletions.size();
+        inputField.setValue(tabCompletions.get(tabCompletionIndex));
+        inputField.moveCursorToEnd(false);
+    }
+
+    private void resetTabCompletion() {
+        tabCompletions.clear();
+        tabCompletionIndex = -1;
+        tabCompletionPrefix = "";
+    }
+
+    private List<String> getCompletions(String input) {
+        if (input.isEmpty()) {
+            return new ArrayList<>(List.of("help", "clear", "ls", "rm ", "download ", "run ", "stop"));
+        }
+
+        String[] parts = input.split("\\s+", 2);
+        String command = parts[0].toLowerCase();
+
+        if (parts.length == 1) {
+            List<String> commands = List.of("help", "clear", "ls", "rm", "download", "run", "stop");
+            return commands.stream()
+                    .filter(cmd -> cmd.startsWith(command))
+                    .collect(Collectors.toList());
+        }
+
+        if (command.equals("rm") || command.equals("run")) {
+            String prefix = parts.length > 1 ? parts[1] : "";
+            return getFileCompletions(command, prefix);
+        }
+
+        return new ArrayList<>();
+    }
+
+    private List<String> getFileCompletions(String command, String prefix) {
+        List<String> files = menu.getFileNames();
+        String lowerPrefix = prefix.toLowerCase();
+
+        return files.stream()
+                .filter(file -> file.toLowerCase().startsWith(lowerPrefix))
+                .map(file -> command + " " + file)
+                .collect(Collectors.toList());
     }
 
     private void sendCommand(String command) {

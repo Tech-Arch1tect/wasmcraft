@@ -455,6 +455,10 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         return new ArrayList<>(commandHistory);
     }
 
+    public List<String> getFileNames() {
+        return new ArrayList<>(fileSystem.keySet());
+    }
+
     private void addToCommandHistory(String command) {
         if (command == null || command.trim().isEmpty()) {
             return;
@@ -789,7 +793,7 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
     }
 
     public void syncToPlayer(ServerPlayer player) {
-        NetworkManager.sendToPlayer(player, new ComputerOutputSyncPacket(worldPosition, getOutputHistory(), getCommandHistory()));
+        NetworkManager.sendToPlayer(player, new ComputerOutputSyncPacket(worldPosition, getOutputHistory(), getCommandHistory(), getFileNames()));
     }
 
     private void syncToAllViewers() {

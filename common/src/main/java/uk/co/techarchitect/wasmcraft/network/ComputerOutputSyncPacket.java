@@ -13,7 +13,7 @@ import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
 import java.util.ArrayList;
 import java.util.List;
 
-public record ComputerOutputSyncPacket(BlockPos pos, List<String> output, List<String> commandHistory) implements CustomPacketPayload {
+public record ComputerOutputSyncPacket(BlockPos pos, List<String> output, List<String> commandHistory, List<String> fileNames) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<ComputerOutputSyncPacket> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Wasmcraft.MOD_ID, "computer_output_sync"));
@@ -29,6 +29,10 @@ public record ComputerOutputSyncPacket(BlockPos pos, List<String> output, List<S
                 for (String cmd : packet.commandHistory) {
                     buf.writeUtf(cmd);
                 }
+                buf.writeInt(packet.fileNames.size());
+                for (String file : packet.fileNames) {
+                    buf.writeUtf(file);
+                }
             },
             buf -> {
                 BlockPos pos = buf.readBlockPos();
@@ -42,7 +46,12 @@ public record ComputerOutputSyncPacket(BlockPos pos, List<String> output, List<S
                 for (int i = 0; i < cmdSize; i++) {
                     commandHistory.add(buf.readUtf());
                 }
-                return new ComputerOutputSyncPacket(pos, output, commandHistory);
+                int fileSize = buf.readInt();
+                List<String> fileNames = new ArrayList<>();
+                for (int i = 0; i < fileSize; i++) {
+                    fileNames.add(buf.readUtf());
+                }
+                return new ComputerOutputSyncPacket(pos, output, commandHistory, fileNames);
             }
     );
 
@@ -58,6 +67,7 @@ public record ComputerOutputSyncPacket(BlockPos pos, List<String> output, List<S
                 if (player != null && player.containerMenu instanceof ComputerMenu menu) {
                     menu.setClientOutputHistory(packet.output);
                     menu.setClientCommandHistory(packet.commandHistory);
+                    menu.setClientFileNames(packet.fileNames);
                 }
             });
         });

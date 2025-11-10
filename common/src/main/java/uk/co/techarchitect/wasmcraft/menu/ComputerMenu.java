@@ -14,6 +14,7 @@ public class ComputerMenu extends AbstractContainerMenu {
     private final ComputerBlockEntity blockEntity;
     private List<String> clientOutputHistory = new ArrayList<>();
     private List<String> clientCommandHistory = new ArrayList<>();
+    private List<String> clientFileNames = new ArrayList<>();
 
     public ComputerMenu(int containerId, Inventory playerInventory, ComputerBlockEntity blockEntity) {
         super(ModMenuTypes.COMPUTER_MENU.get(), containerId);
@@ -21,6 +22,7 @@ public class ComputerMenu extends AbstractContainerMenu {
         if (blockEntity != null) {
             this.clientOutputHistory = new ArrayList<>(blockEntity.getOutputHistory());
             this.clientCommandHistory = new ArrayList<>(blockEntity.getCommandHistory());
+            this.clientFileNames = new ArrayList<>(blockEntity.getFileNames());
         }
     }
 
@@ -56,5 +58,13 @@ public class ComputerMenu extends AbstractContainerMenu {
 
     public void setClientCommandHistory(List<String> history) {
         this.clientCommandHistory = new ArrayList<>(history);
+    }
+
+    public List<String> getFileNames() {
+        return clientFileNames;
+    }
+
+    public void setClientFileNames(List<String> fileNames) {
+        this.clientFileNames = new ArrayList<>(fileNames);
     }
 }

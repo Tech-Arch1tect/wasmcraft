@@ -36,8 +36,9 @@ public record ComputerCommandPacket(BlockPos pos, String command) implements Cus
                     computerBlockEntity.executeCommand(packet.command);
                     var history = computerBlockEntity.getOutputHistory();
                     var commandHistory = computerBlockEntity.getCommandHistory();
+                    var fileNames = computerBlockEntity.getFileNames();
                     NetworkManager.sendToPlayer(serverPlayer,
-                            new ComputerOutputSyncPacket(packet.pos, history, commandHistory));
+                            new ComputerOutputSyncPacket(packet.pos, history, commandHistory, fileNames));
                 }
             }
         });
