@@ -13,7 +13,7 @@ import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
 import java.util.ArrayList;
 import java.util.List;
 
-public record ComputerOutputSyncPacket(BlockPos pos, List<String> output) implements CustomPacketPayload {
+public record ComputerOutputSyncPacket(BlockPos pos, List<String> output, List<String> commandHistory) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<ComputerOutputSyncPacket> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Wasmcraft.MOD_ID, "computer_output_sync"));
@@ -25,6 +25,10 @@ public record ComputerOutputSyncPacket(BlockPos pos, List<String> output) implem
                 for (String line : packet.output) {
                     buf.writeUtf(line);
                 }
+                buf.writeInt(packet.commandHistory.size());
+                for (String cmd : packet.commandHistory) {
+                    buf.writeUtf(cmd);
+                }
             },
             buf -> {
                 BlockPos pos = buf.readBlockPos();
@@ -33,7 +37,12 @@ public record ComputerOutputSyncPacket(BlockPos pos, List<String> output) implem
                 for (int i = 0; i < size; i++) {
                     output.add(buf.readUtf());
                 }
-                return new ComputerOutputSyncPacket(pos, output);
+                int cmdSize = buf.readInt();
+                List<String> commandHistory = new ArrayList<>();
+                for (int i = 0; i < cmdSize; i++) {
+                    commandHistory.add(buf.readUtf());
+                }
+                return new ComputerOutputSyncPacket(pos, output, commandHistory);
             }
     );
 
@@ -48,6 +57,7 @@ public record ComputerOutputSyncPacket(BlockPos pos, List<String> output) implem
                 var player = Minecraft.getInstance().player;
                 if (player != null && player.containerMenu instanceof ComputerMenu menu) {
                     menu.setClientOutputHistory(packet.output);
+                    menu.setClientCommandHistory(packet.commandHistory);
                 }
             });
         });

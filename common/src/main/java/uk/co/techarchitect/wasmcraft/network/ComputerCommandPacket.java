@@ -35,8 +35,9 @@ public record ComputerCommandPacket(BlockPos pos, String command) implements Cus
                 if (serverPlayer.level().getBlockEntity(packet.pos) instanceof ComputerBlockEntity computerBlockEntity) {
                     computerBlockEntity.executeCommand(packet.command);
                     var history = computerBlockEntity.getOutputHistory();
+                    var commandHistory = computerBlockEntity.getCommandHistory();
                     NetworkManager.sendToPlayer(serverPlayer,
-                            new ComputerOutputSyncPacket(packet.pos, history));
+                            new ComputerOutputSyncPacket(packet.pos, history, commandHistory));
                 }
             }
         });

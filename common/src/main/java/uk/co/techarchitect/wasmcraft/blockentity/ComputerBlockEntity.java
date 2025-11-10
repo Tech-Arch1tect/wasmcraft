@@ -46,9 +46,11 @@ import java.util.UUID;
 public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProvider, RedstoneContext, PeripheralContext, MonitorContext {
     private static final Logger LOGGER = LoggerFactory.getLogger(ComputerBlockEntity.class);
     private static final int MAX_HISTORY_LINES = 100;
+    private static final int MAX_COMMAND_HISTORY = 50;
     private static final double PERIPHERAL_RANGE = 16.0;
 
     private final List<String> outputHistory = new ArrayList<>();
+    private final List<String> commandHistory = new ArrayList<>();
     private final Map<String, byte[]> fileSystem = new HashMap<>();
     private final int[] redstoneOutputs = new int[6];
     private final int[] redstoneInputs = new int[6];
@@ -449,6 +451,26 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         return new ArrayList<>(outputHistory);
     }
 
+    public List<String> getCommandHistory() {
+        return new ArrayList<>(commandHistory);
+    }
+
+    private void addToCommandHistory(String command) {
+        if (command == null || command.trim().isEmpty()) {
+            return;
+        }
+
+        if (!commandHistory.isEmpty() && commandHistory.get(commandHistory.size() - 1).equals(command)) {
+            return;
+        }
+
+        commandHistory.add(command);
+        while (commandHistory.size() > MAX_COMMAND_HISTORY) {
+            commandHistory.remove(0);
+        }
+        setChanged();
+    }
+
     public void tick() {
         if (activeExecution != null) {
             List<String> stdoutLines = activeExecution.getStdout().pollLines();
@@ -510,6 +532,7 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
 
     public void executeCommand(String command) {
         addOutputLine("> " + command);
+        addToCommandHistory(command);
 
         String[] parts = command.toLowerCase().trim().split("\\s+");
         String cmd = parts[0];
@@ -654,6 +677,12 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
         }
         tag.put("OutputHistory", historyList);
 
+        ListTag commandHistoryList = new ListTag();
+        for (String command : commandHistory) {
+            commandHistoryList.add(StringTag.valueOf(command));
+        }
+        tag.put("CommandHistory", commandHistoryList);
+
         CompoundTag filesTag = new CompoundTag();
         for (Map.Entry<String, byte[]> entry : fileSystem.entrySet()) {
             filesTag.putByteArray(entry.getKey(), entry.getValue());
@@ -691,6 +720,14 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
             CompoundTag filesTag = tag.getCompound("FileSystem");
             for (String key : filesTag.getAllKeys()) {
                 fileSystem.put(key, filesTag.getByteArray(key));
+            }
+        }
+
+        commandHistory.clear();
+        if (tag.contains("CommandHistory", Tag.TAG_LIST)) {
+            ListTag commandHistoryList = tag.getList("CommandHistory", Tag.TAG_STRING);
+            for (int i = 0; i < commandHistoryList.size(); i++) {
+                commandHistory.add(commandHistoryList.getString(i));
             }
         }
 
@@ -752,7 +789,7 @@ public class ComputerBlockEntity extends BlockEntity implements ExtendedMenuProv
     }
 
     public void syncToPlayer(ServerPlayer player) {
-        NetworkManager.sendToPlayer(player, new ComputerOutputSyncPacket(worldPosition, getOutputHistory()));
+        NetworkManager.sendToPlayer(player, new ComputerOutputSyncPacket(worldPosition, getOutputHistory(), getCommandHistory()));
     }
 
     private void syncToAllViewers() {

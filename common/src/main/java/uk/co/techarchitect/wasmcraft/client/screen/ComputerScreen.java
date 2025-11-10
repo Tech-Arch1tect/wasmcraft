@@ -20,6 +20,7 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
 
     private int scrollOffset = 0;
     private EditBox inputField;
+    private int historyIndex = -1;
 
     public ComputerScreen(ComputerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
@@ -86,9 +87,21 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
                 if (!command.isEmpty()) {
                     sendCommand(command);
                     inputField.setValue("");
+                    historyIndex = -1;
                 }
                 return true;
             }
+
+            if (keyCode == 265) {
+                navigateHistory(true);
+                return true;
+            }
+
+            if (keyCode == 264) {
+                navigateHistory(false);
+                return true;
+            }
+
             if (inputField.keyPressed(keyCode, scanCode, modifiers)) {
                 return true;
             }
@@ -100,6 +113,31 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
         }
 
         return false;
+    }
+
+    private void navigateHistory(boolean up) {
+        List<String> history = this.menu.getCommandHistory();
+        if (history.isEmpty()) {
+            return;
+        }
+
+        if (up) {
+            if (historyIndex < history.size() - 1) {
+                historyIndex++;
+            }
+        } else {
+            if (historyIndex > -1) {
+                historyIndex--;
+            }
+        }
+
+        if (historyIndex == -1) {
+            inputField.setValue("");
+        } else {
+            int actualIndex = history.size() - 1 - historyIndex;
+            inputField.setValue(history.get(actualIndex));
+            inputField.moveCursorToEnd(false);
+        }
     }
 
     private void sendCommand(String command) {

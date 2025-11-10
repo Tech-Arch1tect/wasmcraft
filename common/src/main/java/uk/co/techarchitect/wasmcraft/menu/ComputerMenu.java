@@ -13,12 +13,14 @@ import java.util.List;
 public class ComputerMenu extends AbstractContainerMenu {
     private final ComputerBlockEntity blockEntity;
     private List<String> clientOutputHistory = new ArrayList<>();
+    private List<String> clientCommandHistory = new ArrayList<>();
 
     public ComputerMenu(int containerId, Inventory playerInventory, ComputerBlockEntity blockEntity) {
         super(ModMenuTypes.COMPUTER_MENU.get(), containerId);
         this.blockEntity = blockEntity;
         if (blockEntity != null) {
             this.clientOutputHistory = new ArrayList<>(blockEntity.getOutputHistory());
+            this.clientCommandHistory = new ArrayList<>(blockEntity.getCommandHistory());
         }
     }
 
@@ -46,5 +48,13 @@ public class ComputerMenu extends AbstractContainerMenu {
 
     public void setClientOutputHistory(List<String> history) {
         this.clientOutputHistory = new ArrayList<>(history);
+    }
+
+    public List<String> getCommandHistory() {
+        return clientCommandHistory;
+    }
+
+    public void setClientCommandHistory(List<String> history) {
+        this.clientCommandHistory = new ArrayList<>(history);
     }
 }
