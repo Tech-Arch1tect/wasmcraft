@@ -7,9 +7,8 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import uk.co.techarchitect.wasmcraft.Wasmcraft;
-import uk.co.techarchitect.wasmcraft.blockentity.ComputerBlockEntity;
+import uk.co.techarchitect.wasmcraft.computer.ComputerBlockEntityBase;
 
 public record ComputerCommandPacket(BlockPos pos, String command) implements CustomPacketPayload {
 
@@ -32,7 +31,7 @@ public record ComputerCommandPacket(BlockPos pos, String command) implements Cus
     public static void handle(ComputerCommandPacket packet, NetworkManager.PacketContext context) {
         context.queue(() -> {
             if (context.getPlayer() instanceof ServerPlayer serverPlayer) {
-                if (serverPlayer.level().getBlockEntity(packet.pos) instanceof ComputerBlockEntity computerBlockEntity) {
+                if (serverPlayer.level().getBlockEntity(packet.pos) instanceof ComputerBlockEntityBase computerBlockEntity) {
                     computerBlockEntity.executeCommand(packet.command);
                     var history = computerBlockEntity.getOutputHistory();
                     var commandHistory = computerBlockEntity.getCommandHistory();
