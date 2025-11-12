@@ -34,13 +34,19 @@ public abstract class ComputerBlockEntityBase extends BlockEntity implements Ext
     protected final CommandRegistry commandRegistry = new CommandRegistry();
     protected final List<String> commandHistory = new ArrayList<>();
     protected final List<ServerPlayer> activeViewers = new ArrayList<>();
+    protected UUID id;
     protected UUID owner;
     protected WasmExecutor.ExecutionHandle activeExecution;
 
     public ComputerBlockEntityBase(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
+        this.id = UUID.randomUUID();
         registerCommands();
         terminal.addLine("Computer initialized. Type 'help' for commands.");
+    }
+
+    public UUID getId() {
+        return id;
     }
 
     protected abstract void registerCommands();
@@ -193,6 +199,8 @@ public abstract class ComputerBlockEntityBase extends BlockEntity implements Ext
         fileSystem.saveToNbt(filesTag);
         tag.put("FileSystem", filesTag);
 
+        tag.putUUID("ComputerId", id);
+
         if (owner != null) {
             tag.putUUID("Owner", owner);
         }
@@ -218,6 +226,10 @@ public abstract class ComputerBlockEntityBase extends BlockEntity implements Ext
             for (int i = 0; i < commandHistoryList.size(); i++) {
                 commandHistory.add(commandHistoryList.getString(i));
             }
+        }
+
+        if (tag.hasUUID("ComputerId")) {
+            this.id = tag.getUUID("ComputerId");
         }
 
         if (tag.hasUUID("Owner")) {

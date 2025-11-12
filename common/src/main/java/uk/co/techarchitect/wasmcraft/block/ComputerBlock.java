@@ -111,4 +111,15 @@ public class ComputerBlock extends HorizontalDirectionalBlock implements EntityB
                 ? (lvl, pos, st, be) -> ((ComputerBlockEntity) be).tick()
                 : null;
     }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock())) {
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof ComputerBlockEntity computer) {
+                computer.onBlockBroken();
+            }
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston);
+    }
 }

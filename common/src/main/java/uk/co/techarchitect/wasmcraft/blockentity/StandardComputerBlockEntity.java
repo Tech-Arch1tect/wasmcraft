@@ -11,6 +11,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
+import uk.co.techarchitect.wasmcraft.chunkloading.ChunkLoadingManager;
 import uk.co.techarchitect.wasmcraft.computer.ComputerBlockEntityBase;
 import uk.co.techarchitect.wasmcraft.computer.command.builtin.*;
 import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
@@ -38,6 +39,25 @@ public class StandardComputerBlockEntity extends ComputerBlockEntityBase impleme
 
     public StandardComputerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.COMPUTER_BLOCK_ENTITY.get(), pos, state);
+    }
+
+    @Override
+    public void clearRemoved() {
+        super.clearRemoved();
+        if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            ChunkLoadingManager.getInstance().registerChunkLoader(getId(), serverLevel, worldPosition);
+        }
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+    }
+
+    public void onBlockBroken() {
+        if (level != null && !level.isClientSide) {
+            ChunkLoadingManager.getInstance().unregisterChunkLoader(getId());
+        }
     }
 
     @Override
