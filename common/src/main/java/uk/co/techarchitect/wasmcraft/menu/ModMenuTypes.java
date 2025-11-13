@@ -15,8 +15,14 @@ public class ModMenuTypes {
     public static final RegistrySupplier<MenuType<ComputerMenu>> COMPUTER_MENU =
             MENUS.register("computer_menu", () ->
                     MenuRegistry.ofExtended((syncId, inventory, buf) -> {
-                        BlockPos pos = buf.readBlockPos();
-                        return new ComputerMenu(syncId, inventory, pos);
+                        boolean hasPos = buf.readBoolean();
+                        if (hasPos) {
+                            BlockPos pos = buf.readBlockPos();
+                            return new ComputerMenu(syncId, inventory, pos);
+                        } else {
+                            int entityId = buf.readInt();
+                            return new ComputerMenu(syncId, inventory, entityId);
+                        }
                     }));
 
     public static void register() {

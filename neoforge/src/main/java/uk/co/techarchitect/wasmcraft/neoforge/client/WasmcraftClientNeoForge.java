@@ -7,8 +7,12 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import uk.co.techarchitect.wasmcraft.Wasmcraft;
 import uk.co.techarchitect.wasmcraft.blockentity.ModBlockEntities;
+import uk.co.techarchitect.wasmcraft.client.model.DroneModel;
+import uk.co.techarchitect.wasmcraft.client.renderer.DroneRenderer;
+import uk.co.techarchitect.wasmcraft.client.renderer.ModModelLayers;
 import uk.co.techarchitect.wasmcraft.client.renderer.MonitorRenderer;
 import uk.co.techarchitect.wasmcraft.client.screen.ComputerScreen;
+import uk.co.techarchitect.wasmcraft.entity.ModEntities;
 import uk.co.techarchitect.wasmcraft.menu.ModMenuTypes;
 
 @EventBusSubscriber(modid = Wasmcraft.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
@@ -22,5 +26,11 @@ public class WasmcraftClientNeoForge {
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.MONITOR_BLOCK_ENTITY.get(), MonitorRenderer::new);
+        event.registerEntityRenderer(ModEntities.DRONE.get(), DroneRenderer::new);
+    }
+
+    @SubscribeEvent
+    public static void registerLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        event.registerLayerDefinition(ModModelLayers.DRONE, DroneModel::createBodyLayer);
     }
 }

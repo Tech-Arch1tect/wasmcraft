@@ -1,6 +1,8 @@
 {
   "block.wasmcraft.computer_block": "Computer",
   "block.wasmcraft.monitor_block": "Monitor",
+  "item.wasmcraft.drone_spawn_egg": "Drone Spawn Egg",
+  "entity.wasmcraft.drone": "Drone",
   "itemGroup.wasmcraft.wasmcraft_tab": "Wasmcraft",
   "container.wasmcraft.computer": "Computer Terminal"
 }

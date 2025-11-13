@@ -1,48 +1,53 @@
 package uk.co.techarchitect.wasmcraft.computer;
 
 import dev.architectury.networking.NetworkManager;
-import dev.architectury.registry.menu.ExtendedMenuProvider;
+import dev.architectury.registry.menu.MenuRegistry;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import uk.co.techarchitect.wasmcraft.computer.command.Command;
 import uk.co.techarchitect.wasmcraft.computer.command.CommandContext;
+import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
 import uk.co.techarchitect.wasmcraft.menu.ComputerProvider;
 import uk.co.techarchitect.wasmcraft.network.ComputerOutputSyncPacket;
 import uk.co.techarchitect.wasmcraft.wasm.WasmContext;
 import uk.co.techarchitect.wasmcraft.wasm.WasmContextComposer;
 import uk.co.techarchitect.wasmcraft.wasm.WasmExecutor;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public abstract class ComputerBlockEntityBase extends BlockEntity implements ExtendedMenuProvider, CommandContext, ComputerProvider {
+public abstract class ComputerEntityBase extends PathfinderMob implements CommandContext, ComputerProvider {
     protected final ComputerCore computerCore;
 
-    public ComputerBlockEntityBase(BlockEntityType<?> type, BlockPos pos, BlockState state) {
-        super(type, pos, state);
+    public ComputerEntityBase(EntityType<? extends PathfinderMob> entityType, Level level, String initMessage) {
+        super(entityType, level);
         this.computerCore = new ComputerCore();
         this.computerCore.setSyncCallback((player, output, cmdHistory, files) -> {
-            NetworkManager.sendToPlayer(player, new ComputerOutputSyncPacket(worldPosition, output, cmdHistory, files, -1));
+            NetworkManager.sendToPlayer(player,
+                new ComputerOutputSyncPacket(null, output, cmdHistory, files, this.getId()));
         });
         registerCommands();
-        computerCore.getTerminal().addLine("Computer initialized. Type 'help' for commands.");
+        computerCore.getTerminal().addLine(initMessage);
     }
 
-    public UUID getId() {
+    public UUID getComputerId() {
         return computerCore.getId();
     }
 
     protected abstract void registerCommands();
 
     protected abstract WasmContext[] getContexts();
+
+    protected abstract String getComputerDisplayName();
 
     protected WasmContext buildWasmContext() {
         WasmContextComposer composer = new WasmContextComposer();
@@ -58,7 +63,6 @@ public abstract class ComputerBlockEntityBase extends BlockEntity implements Ext
 
     public void setOwner(UUID owner) {
         computerCore.setOwner(owner);
-        setChanged();
     }
 
     public UUID getOwner() {
@@ -84,13 +88,6 @@ public abstract class ComputerBlockEntityBase extends BlockEntity implements Ext
         return computerCore.getFileSystem().listFiles();
     }
 
-    public void tick() {
-        computerCore.tick(() -> {
-            setChanged();
-            computerCore.syncToAllViewers();
-        });
-    }
-
     @Override
     public void executeCommand(String command) {
         computerCore.getTerminal().addLine("> " + command);
@@ -112,49 +109,65 @@ public abstract class ComputerBlockEntityBase extends BlockEntity implements Ext
             computerCore.getTerminal().addLine("Unknown command: " + cmd);
             computerCore.getTerminal().addLine("Type 'help' for available commands");
         }
-
-        setChanged();
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
-        computerCore.saveToNbt(tag);
+    public void tick() {
+        super.tick();
+
+        if (!level().isClientSide) {
+            computerCore.tick(() -> {
+                computerCore.syncToAllViewers();
+            });
+        }
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
-        computerCore.loadFromNbt(tag);
+    public InteractionResult interactAt(Player player, Vec3 hitPos, InteractionHand hand) {
+        if (!level().isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (computerCore.getOwner() == null) {
+                computerCore.setOwner(serverPlayer.getUUID());
+            }
+            final int entityId = this.getId();
+            computerCore.addViewer(serverPlayer);
+            MenuRegistry.openExtendedMenu(serverPlayer,
+                new dev.architectury.registry.menu.ExtendedMenuProvider() {
+                    @Override
+                    public void saveExtraData(net.minecraft.network.FriendlyByteBuf buf) {
+                        buf.writeBoolean(false);
+                        buf.writeInt(entityId);
+                    }
+
+                    @Override
+                    public net.minecraft.network.chat.Component getDisplayName() {
+                        return net.minecraft.network.chat.Component.literal(ComputerEntityBase.this.getComputerDisplayName());
+                    }
+
+                    @Override
+                    public net.minecraft.world.inventory.AbstractContainerMenu createMenu(int id, net.minecraft.world.entity.player.Inventory playerInventory, net.minecraft.world.entity.player.Player player) {
+                        return new ComputerMenu(id, playerInventory, ComputerEntityBase.this, null, entityId);
+                    }
+                });
+            return InteractionResult.SUCCESS;
+        }
+        return InteractionResult.CONSUME;
     }
 
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        CompoundTag tag = new CompoundTag();
-        saveAdditional(tag, registries);
-        return tag;
+    public void addAdditionalSaveData(CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        CompoundTag computerTag = new CompoundTag();
+        computerCore.saveToNbt(computerTag);
+        tag.put("Computer", computerTag);
     }
 
     @Override
-    public void saveExtraData(FriendlyByteBuf buf) {
-        buf.writeBoolean(true);
-        buf.writeBlockPos(this.worldPosition);
-    }
-
-    public void addViewer(ServerPlayer player) {
-        computerCore.addViewer(player);
-    }
-
-    public void removeViewer(ServerPlayer player) {
-        computerCore.removeViewer(player);
-    }
-
-    public void syncToPlayer(ServerPlayer player) {
-        computerCore.syncToPlayer(player);
-    }
-
-    protected void syncToAllViewers() {
-        computerCore.syncToAllViewers();
+    public void readAdditionalSaveData(CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        if (tag.contains("Computer")) {
+            CompoundTag computerTag = tag.getCompound("Computer");
+            computerCore.loadFromNbt(computerTag);
+        }
     }
 
     @Override
@@ -174,12 +187,12 @@ public abstract class ComputerBlockEntityBase extends BlockEntity implements Ext
 
     @Override
     public BlockEntity getBlockEntity() {
-        return this;
+        return null;
     }
 
     @Override
     public Level getLevel() {
-        return level;
+        return level();
     }
 
     @Override
@@ -194,6 +207,5 @@ public abstract class ComputerBlockEntityBase extends BlockEntity implements Ext
 
     @Override
     public void markChanged() {
-        setChanged();
     }
 }

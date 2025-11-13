@@ -210,8 +210,10 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
     }
 
     private void sendCommand(String command) {
-        if (menu.getBlockEntity() != null) {
-            NetworkManager.sendToServer(new ComputerCommandPacket(menu.getBlockEntity().getBlockPos(), command));
+        if (menu.isBlockEntity()) {
+            NetworkManager.sendToServer(new ComputerCommandPacket(menu.getBlockPos(), command, -1));
+        } else if (menu.isEntity()) {
+            NetworkManager.sendToServer(new ComputerCommandPacket(null, command, menu.getEntityId()));
         }
     }
 }

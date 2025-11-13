@@ -6,12 +6,13 @@ import uk.co.techarchitect.wasmcraft.wasm.WasmContext;
 import uk.co.techarchitect.wasmcraft.wasm.WasmExecutor;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 public class RunCommand implements Command {
-    private final WasmContext wasmContext;
+    private final Supplier<WasmContext> wasmContextProvider;
 
-    public RunCommand(WasmContext wasmContext) {
-        this.wasmContext = wasmContext;
+    public RunCommand(Supplier<WasmContext> wasmContextProvider) {
+        this.wasmContextProvider = wasmContextProvider;
     }
 
     @Override
@@ -57,6 +58,7 @@ public class RunCommand implements Command {
 
         context.prepareForExecution();
 
+        WasmContext wasmContext = wasmContextProvider.get();
         WasmExecutor.ExecutionHandle handle = WasmExecutor.executeAsync(wasmBytes, wasmContext);
         context.setActiveExecution(handle);
     }

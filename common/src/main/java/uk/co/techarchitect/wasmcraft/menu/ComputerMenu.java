@@ -5,29 +5,40 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
-import uk.co.techarchitect.wasmcraft.computer.ComputerBlockEntityBase;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class ComputerMenu extends AbstractContainerMenu {
-    private final ComputerBlockEntityBase blockEntity;
+    private final ComputerProvider provider;
+    private final BlockPos blockPos;
+    private final int entityId;
     private List<String> clientOutputHistory = new ArrayList<>();
     private List<String> clientCommandHistory = new ArrayList<>();
     private List<String> clientFileNames = new ArrayList<>();
 
-    public ComputerMenu(int containerId, Inventory playerInventory, ComputerBlockEntityBase blockEntity) {
+    public ComputerMenu(int containerId, Inventory playerInventory, ComputerProvider provider, BlockPos blockPos, int entityId) {
         super(ModMenuTypes.COMPUTER_MENU.get(), containerId);
-        this.blockEntity = blockEntity;
-        if (blockEntity != null) {
-            this.clientOutputHistory = new ArrayList<>(blockEntity.getOutputHistory());
-            this.clientCommandHistory = new ArrayList<>(blockEntity.getCommandHistory());
-            this.clientFileNames = new ArrayList<>(blockEntity.getFileNames());
+        this.provider = provider;
+        this.blockPos = blockPos;
+        this.entityId = entityId;
+        if (provider != null) {
+            this.clientOutputHistory = new ArrayList<>(provider.getOutputHistory());
+            this.clientCommandHistory = new ArrayList<>(provider.getCommandHistory());
+            this.clientFileNames = new ArrayList<>(provider.getFileNames());
         }
     }
 
     public ComputerMenu(int containerId, Inventory playerInventory, BlockPos pos) {
-        this(containerId, playerInventory, (ComputerBlockEntityBase) playerInventory.player.level().getBlockEntity(pos));
+        this(containerId, playerInventory,
+             (ComputerProvider) playerInventory.player.level().getBlockEntity(pos),
+             pos, -1);
+    }
+
+    public ComputerMenu(int containerId, Inventory playerInventory, int entityId) {
+        this(containerId, playerInventory,
+             (ComputerProvider) playerInventory.player.level().getEntity(entityId),
+             null, entityId);
     }
 
     @Override
@@ -40,8 +51,24 @@ public class ComputerMenu extends AbstractContainerMenu {
         return true;
     }
 
-    public ComputerBlockEntityBase getBlockEntity() {
-        return blockEntity;
+    public ComputerProvider getProvider() {
+        return provider;
+    }
+
+    public BlockPos getBlockPos() {
+        return blockPos;
+    }
+
+    public int getEntityId() {
+        return entityId;
+    }
+
+    public boolean isBlockEntity() {
+        return blockPos != null;
+    }
+
+    public boolean isEntity() {
+        return entityId != -1;
     }
 
     public List<String> getOutputHistory() {

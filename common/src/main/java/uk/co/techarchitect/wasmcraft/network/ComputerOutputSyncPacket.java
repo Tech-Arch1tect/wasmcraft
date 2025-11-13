@@ -13,14 +13,17 @@ import uk.co.techarchitect.wasmcraft.menu.ComputerMenu;
 import java.util.ArrayList;
 import java.util.List;
 
-public record ComputerOutputSyncPacket(BlockPos pos, List<String> output, List<String> commandHistory, List<String> fileNames) implements CustomPacketPayload {
+public record ComputerOutputSyncPacket(BlockPos pos, List<String> output, List<String> commandHistory, List<String> fileNames, int entityId) implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<ComputerOutputSyncPacket> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Wasmcraft.MOD_ID, "computer_output_sync"));
 
     public static final StreamCodec<FriendlyByteBuf, ComputerOutputSyncPacket> CODEC = StreamCodec.of(
             (buf, packet) -> {
-                buf.writeBlockPos(packet.pos);
+                buf.writeBoolean(packet.pos != null);
+                if (packet.pos != null) {
+                    buf.writeBlockPos(packet.pos);
+                }
                 buf.writeInt(packet.output.size());
                 for (String line : packet.output) {
                     buf.writeUtf(line);
@@ -33,9 +36,11 @@ public record ComputerOutputSyncPacket(BlockPos pos, List<String> output, List<S
                 for (String file : packet.fileNames) {
                     buf.writeUtf(file);
                 }
+                buf.writeInt(packet.entityId);
             },
             buf -> {
-                BlockPos pos = buf.readBlockPos();
+                boolean hasPos = buf.readBoolean();
+                BlockPos pos = hasPos ? buf.readBlockPos() : null;
                 int size = buf.readInt();
                 List<String> output = new ArrayList<>();
                 for (int i = 0; i < size; i++) {
@@ -51,7 +56,8 @@ public record ComputerOutputSyncPacket(BlockPos pos, List<String> output, List<S
                 for (int i = 0; i < fileSize; i++) {
                     fileNames.add(buf.readUtf());
                 }
-                return new ComputerOutputSyncPacket(pos, output, commandHistory, fileNames);
+                int entityId = buf.readInt();
+                return new ComputerOutputSyncPacket(pos, output, commandHistory, fileNames, entityId);
             }
     );
 

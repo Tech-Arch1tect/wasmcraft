@@ -1,12 +1,15 @@
 package uk.co.techarchitect.wasmcraft.neoforge;
 
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import uk.co.techarchitect.wasmcraft.Wasmcraft;
 import uk.co.techarchitect.wasmcraft.chunkloading.ChunkLoadingManager;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent;
 import net.neoforged.neoforge.common.world.chunk.TicketController;
+import uk.co.techarchitect.wasmcraft.entity.DroneEntity;
+import uk.co.techarchitect.wasmcraft.entity.ModEntities;
 
 @Mod(Wasmcraft.MOD_ID)
 public final class WasmcraftNeoForge {
@@ -16,6 +19,7 @@ public final class WasmcraftNeoForge {
 
     public WasmcraftNeoForge(IEventBus modBus) {
         modBus.addListener(this::registerTicketControllers);
+        modBus.addListener(this::registerEntityAttributes);
 
         ChunkLoadingManager.getInstance().setProvider(new NeoForgeChunkLoadingProvider());
 
@@ -26,4 +30,9 @@ public final class WasmcraftNeoForge {
     private void registerTicketControllers(RegisterTicketControllersEvent event) {
         event.register(CHUNK_TICKET_CONTROLLER);
     }
+
+    private void registerEntityAttributes(EntityAttributeCreationEvent event) {
+        event.put(ModEntities.DRONE.get(), DroneEntity.createAttributes().build());
+    }
 }
+

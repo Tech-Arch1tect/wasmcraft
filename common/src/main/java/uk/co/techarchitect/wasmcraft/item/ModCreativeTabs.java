@@ -19,6 +19,7 @@ public class ModCreativeTabs {
                     .displayItems((context, entries) -> {
                         entries.accept(ModItems.COMPUTER_BLOCK.get());
                         entries.accept(ModItems.MONITOR_BLOCK.get());
+                        entries.accept(ModItems.DRONE_SPAWN_EGG.get());
                     })
             ));
 
