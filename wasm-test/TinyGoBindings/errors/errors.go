@@ -35,6 +35,11 @@ const (
 	ERR_MOVEMENT_NOT_SUPPORTED    = 83
 	ERR_MOVEMENT_IN_PROGRESS      = 84
 
+	// World errors (100-119)
+	ERR_WORLD_INVALID_SIDE      = 100
+	ERR_WORLD_OUT_OF_BOUNDS     = 101
+	ERR_WORLD_CHUNK_NOT_LOADED  = 102
+
 	// Memory address for error messages
 	ERROR_MESSAGE_PTR     = 28672
 	ERROR_MESSAGE_MAX_LEN = 1024
@@ -63,6 +68,20 @@ func Check(errorCode int) {
 	if errorCode != SUCCESS {
 		panic(GetErrorMessage(errorCode))
 	}
+}
+
+func GetLastError() string {
+	msgLen := *(*int32)(unsafe.Pointer(uintptr(ERROR_MESSAGE_PTR)))
+	if msgLen <= 0 || msgLen > ERROR_MESSAGE_MAX_LEN {
+		return "No error message available"
+	}
+
+	msgBytes := make([]byte, msgLen)
+	for i := int32(0); i < msgLen; i++ {
+		msgBytes[i] = *(*byte)(unsafe.Pointer(uintptr(ERROR_MESSAGE_PTR + 4 + int(i))))
+	}
+
+	return string(msgBytes)
 }
 
 func GetErrorMessage(errorCode int) string {
@@ -119,6 +138,12 @@ func getDefaultErrorMessage(errorCode int) string {
 		return "Movement not supported by this computer type"
 	case ERR_MOVEMENT_IN_PROGRESS:
 		return "Cannot start movement while another movement is in progress"
+	case ERR_WORLD_INVALID_SIDE:
+		return "Invalid world side (must be 0-5)"
+	case ERR_WORLD_OUT_OF_BOUNDS:
+		return "Position out of world bounds"
+	case ERR_WORLD_CHUNK_NOT_LOADED:
+		return "Chunk not loaded at specified position"
 	case ERR_INVALID_PARAMETER:
 		return "Invalid parameter"
 	case ERR_INVALID_STRING:
