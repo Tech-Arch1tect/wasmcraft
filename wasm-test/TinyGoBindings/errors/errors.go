@@ -23,15 +23,41 @@ const (
 	ERR_REDSTONE_INVALID_SIDE  = 40
 	ERR_REDSTONE_INVALID_POWER = 41
 
-	// General errors (60-99)
+	// General errors (60-79)
 	ERR_INVALID_PARAMETER = 60
 	ERR_INVALID_STRING    = 61
 	ERR_BUFFER_TOO_SMALL  = 62
+
+	// Movement errors (80-99)
+	ERR_MOVEMENT_COLLISION        = 80
+	ERR_MOVEMENT_OUT_OF_WORLD     = 81
+	ERR_MOVEMENT_INVALID_DISTANCE = 82
+	ERR_MOVEMENT_NOT_SUPPORTED    = 83
+	ERR_MOVEMENT_IN_PROGRESS      = 84
 
 	// Memory address for error messages
 	ERROR_MESSAGE_PTR     = 28672
 	ERROR_MESSAGE_MAX_LEN = 1024
 )
+
+type WasmError struct {
+	Code    int
+	Message string
+}
+
+func (e *WasmError) Error() string {
+	return e.Message
+}
+
+func NewError(errorCode int) error {
+	if errorCode == SUCCESS {
+		return nil
+	}
+	return &WasmError{
+		Code:    errorCode,
+		Message: GetErrorMessage(errorCode),
+	}
+}
 
 func Check(errorCode int) {
 	if errorCode != SUCCESS {
@@ -83,6 +109,16 @@ func getDefaultErrorMessage(errorCode int) string {
 		return "Invalid redstone side (must be 0-5)"
 	case ERR_REDSTONE_INVALID_POWER:
 		return "Invalid redstone power (must be 0-15)"
+	case ERR_MOVEMENT_COLLISION:
+		return "Movement blocked by collision"
+	case ERR_MOVEMENT_OUT_OF_WORLD:
+		return "Movement would take entity out of world bounds"
+	case ERR_MOVEMENT_INVALID_DISTANCE:
+		return "Invalid movement distance (must be >= 0)"
+	case ERR_MOVEMENT_NOT_SUPPORTED:
+		return "Movement not supported by this computer type"
+	case ERR_MOVEMENT_IN_PROGRESS:
+		return "Cannot start movement while another movement is in progress"
 	case ERR_INVALID_PARAMETER:
 		return "Invalid parameter"
 	case ERR_INVALID_STRING:

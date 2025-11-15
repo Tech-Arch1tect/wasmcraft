@@ -18,6 +18,7 @@ import uk.co.techarchitect.wasmcraft.computer.command.builtin.*;
 import uk.co.techarchitect.wasmcraft.wasm.WasmContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.ContextHelper;
 import uk.co.techarchitect.wasmcraft.wasm.context.MonitorContext;
+import uk.co.techarchitect.wasmcraft.wasm.context.MovementContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.PeripheralContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.RedstoneContext;
 
@@ -25,7 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class DroneEntity extends ComputerEntityBase {
+public class DroneEntity extends ComputerEntityBase implements MovementContext {
     private static final int INVENTORY_SIZE = 27;
     private static final double PERIPHERAL_RANGE = 16.0;
     private static final EntityDataAccessor<Float> HOVER_HEIGHT = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
@@ -36,13 +37,21 @@ public class DroneEntity extends ComputerEntityBase {
     private final Map<String, UUID> connectedPeripherals = new HashMap<>();
     private final ContextHelper contextHelper;
 
-    private double targetHoverHeight;
+    private boolean isMovementInProgress = false;
+    private Vec3 targetPosition = null;
+    private Vec3 movementStartPosition = null;
+    private int movementTicksElapsed = 0;
+    private static final int MAX_MOVEMENT_TICKS = 600;
+    private float targetYaw = 0.0f;
+    private static final double MOVEMENT_SPEED = 0.05;
+    private static final double POSITION_THRESHOLD = 0.05;
+    private final Object movementLock = new Object();
 
     public DroneEntity(EntityType<? extends DroneEntity> entityType, Level level) {
         super(entityType, level, "Drone initialized. Type 'help' for commands.");
         this.inventory = new SimpleContainer(INVENTORY_SIZE);
-        this.targetHoverHeight = 1.0;
         this.noCulling = true;
+        this.setNoGravity(true);
         this.contextHelper = new ContextHelper(
             connectedPeripherals,
             redstoneOutputs,
@@ -105,7 +114,7 @@ public class DroneEntity extends ComputerEntityBase {
 
     @Override
     protected WasmContext[] getContexts() {
-        return new WasmContext[] { contextHelper };
+        return new WasmContext[] { contextHelper, this };
     }
 
     @Override
@@ -118,27 +127,13 @@ public class DroneEntity extends ComputerEntityBase {
         super.tick();
 
         if (!level().isClientSide) {
-            maintainHoverHeight();
+            if (isMovementInProgress && targetPosition != null) {
+                updateProgrammaticMovement();
+            } else {
+                setDeltaMovement(Vec3.ZERO);
+            }
             updateRedstoneInputs();
         }
-    }
-
-    private void maintainHoverHeight() {
-        BlockPos belowPos = this.blockPosition().below();
-        double currentY = this.getY();
-        double targetY = belowPos.getY() + targetHoverHeight;
-
-        Vec3 motion = this.getDeltaMovement();
-        double yMotion = motion.y;
-
-        double diff = targetY - currentY;
-        if (Math.abs(diff) > 0.1) {
-            yMotion = diff * 0.1;
-        } else {
-            yMotion *= 0.8;
-        }
-
-        this.setDeltaMovement(motion.x * 0.9, yMotion, motion.z * 0.9);
     }
 
     private void updateRedstoneInputs() {
@@ -199,7 +194,6 @@ public class DroneEntity extends ComputerEntityBase {
         tag.put("Inventory", inventoryTag);
 
         tag.putIntArray("RedstoneOutputs", redstoneOutputs);
-        tag.putDouble("TargetHoverHeight", targetHoverHeight);
 
         CompoundTag peripheralsTag = new CompoundTag();
         for (Map.Entry<String, UUID> entry : connectedPeripherals.entrySet()) {
@@ -227,10 +221,6 @@ public class DroneEntity extends ComputerEntityBase {
             System.arraycopy(outputs, 0, redstoneOutputs, 0, Math.min(outputs.length, 6));
         }
 
-        if (tag.contains("TargetHoverHeight")) {
-            targetHoverHeight = tag.getDouble("TargetHoverHeight");
-        }
-
         if (tag.contains("ConnectedPeripherals")) {
             CompoundTag peripheralsTag = tag.getCompound("ConnectedPeripherals");
             connectedPeripherals.clear();
@@ -239,6 +229,143 @@ public class DroneEntity extends ComputerEntityBase {
                     connectedPeripherals.put(key, peripheralsTag.getUUID(key));
                 }
             }
+        }
+    }
+
+    @Override
+    public int moveRelative(float forward, float strafe, float vertical, float[] outActualMovement) {
+        if (isMovementInProgress) {
+            return uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.ERR_MOVEMENT_IN_PROGRESS;
+        }
+
+        float yawRad = (float) Math.toRadians(getYRot());
+        float cos = (float) Math.cos(yawRad);
+        float sin = (float) Math.sin(yawRad);
+
+        double dx = forward * cos - strafe * sin;
+        double dz = forward * sin + strafe * cos;
+        double dy = vertical;
+
+        Vec3 currentPos = position();
+        Vec3 targetPos = new Vec3(
+            currentPos.x + dx,
+            currentPos.y + dy,
+            currentPos.z + dz
+        );
+
+        if (targetPos.y < level().getMinBuildHeight() || targetPos.y > level().getMaxBuildHeight()) {
+            return uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.ERR_MOVEMENT_OUT_OF_WORLD;
+        }
+
+        this.movementStartPosition = currentPos;
+        this.targetPosition = targetPos;
+        this.isMovementInProgress = true;
+        this.movementTicksElapsed = 0;
+
+        synchronized (movementLock) {
+            while (isMovementInProgress && movementTicksElapsed < MAX_MOVEMENT_TICKS) {
+                try {
+                    movementLock.wait(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    isMovementInProgress = false;
+                    targetPosition = null;
+                    break;
+                }
+            }
+        }
+
+        Vec3 finalPos = position();
+        outActualMovement[0] = (float) (finalPos.x - currentPos.x);
+        outActualMovement[1] = (float) (finalPos.y - currentPos.y);
+        outActualMovement[2] = (float) (finalPos.z - currentPos.z);
+
+        return uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.SUCCESS;
+    }
+
+    @Override
+    public int rotate(float yawDegrees, float[] outActualYaw) {
+        float currentYaw = getYRot();
+        float newYaw = (currentYaw + yawDegrees) % 360;
+        if (newYaw < 0) newYaw += 360;
+
+        setYRot(newYaw);
+        setYHeadRot(newYaw);
+        yRotO = newYaw;
+
+        outActualYaw[0] = yawDegrees;
+        return uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.SUCCESS;
+    }
+
+    @Override
+    public int getPosition(double[] outPosition) {
+        Vec3 pos = position();
+        outPosition[0] = pos.x;
+        outPosition[1] = pos.y;
+        outPosition[2] = pos.z;
+        return uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.SUCCESS;
+    }
+
+    private void updateProgrammaticMovement() {
+        if (targetPosition == null) {
+            isMovementInProgress = false;
+            return;
+        }
+
+        movementTicksElapsed++;
+
+        Vec3 currentPos = position();
+        Vec3 delta = targetPosition.subtract(currentPos);
+        double distanceSquared = delta.lengthSqr();
+
+        if (distanceSquared < POSITION_THRESHOLD * POSITION_THRESHOLD) {
+            setPos(targetPosition);
+            setDeltaMovement(Vec3.ZERO);
+            isMovementInProgress = false;
+            targetPosition = null;
+            movementStartPosition = null;
+            synchronized (movementLock) {
+                movementLock.notifyAll();
+            }
+            return;
+        }
+
+        if (movementTicksElapsed >= MAX_MOVEMENT_TICKS) {
+            setDeltaMovement(Vec3.ZERO);
+            isMovementInProgress = false;
+            targetPosition = null;
+            movementStartPosition = null;
+            synchronized (movementLock) {
+                movementLock.notifyAll();
+            }
+            return;
+        }
+
+        double distance = Math.sqrt(distanceSquared);
+        Vec3 direction = delta.scale(1.0 / distance);
+        double stepSize = Math.min(MOVEMENT_SPEED, distance);
+        Vec3 motion = direction.scale(stepSize);
+
+        Vec3 newPos = currentPos.add(motion);
+
+        BlockPos blockPos = BlockPos.containing(newPos);
+        if (!level().getBlockState(blockPos).isAir() &&
+            !level().getBlockState(blockPos).canBeReplaced()) {
+            setDeltaMovement(Vec3.ZERO);
+            isMovementInProgress = false;
+            targetPosition = null;
+            movementStartPosition = null;
+            synchronized (movementLock) {
+                movementLock.notifyAll();
+            }
+            return;
+        }
+
+        setPos(newPos);
+        setDeltaMovement(motion);
+
+        synchronized (movementLock) {
+            movementLock.notifyAll();
         }
     }
 

@@ -21,10 +21,17 @@ public class WasmErrorCodes {
     public static final int ERR_REDSTONE_INVALID_SIDE = 40;
     public static final int ERR_REDSTONE_INVALID_POWER = 41;
 
-    // General errors (60-99)
+    // General errors (60-79)
     public static final int ERR_INVALID_PARAMETER = 60;
     public static final int ERR_INVALID_STRING = 61;
     public static final int ERR_BUFFER_TOO_SMALL = 62;
+
+    // Movement errors (80-99)
+    public static final int ERR_MOVEMENT_COLLISION = 80;
+    public static final int ERR_MOVEMENT_OUT_OF_WORLD = 81;
+    public static final int ERR_MOVEMENT_INVALID_DISTANCE = 82;
+    public static final int ERR_MOVEMENT_NOT_SUPPORTED = 83;
+    public static final int ERR_MOVEMENT_IN_PROGRESS = 84;
 
     public static final int ERROR_MESSAGE_PTR = 28672;
     public static final int ERROR_MESSAGE_MAX_LEN = 1024;
@@ -44,6 +51,11 @@ public class WasmErrorCodes {
             case ERR_PERIPHERAL_NOT_CONNECTED -> "ERR_PERIPHERAL_NOT_CONNECTED";
             case ERR_REDSTONE_INVALID_SIDE -> "ERR_REDSTONE_INVALID_SIDE";
             case ERR_REDSTONE_INVALID_POWER -> "ERR_REDSTONE_INVALID_POWER";
+            case ERR_MOVEMENT_COLLISION -> "ERR_MOVEMENT_COLLISION";
+            case ERR_MOVEMENT_OUT_OF_WORLD -> "ERR_MOVEMENT_OUT_OF_WORLD";
+            case ERR_MOVEMENT_INVALID_DISTANCE -> "ERR_MOVEMENT_INVALID_DISTANCE";
+            case ERR_MOVEMENT_NOT_SUPPORTED -> "ERR_MOVEMENT_NOT_SUPPORTED";
+            case ERR_MOVEMENT_IN_PROGRESS -> "ERR_MOVEMENT_IN_PROGRESS";
             case ERR_INVALID_PARAMETER -> "ERR_INVALID_PARAMETER";
             case ERR_INVALID_STRING -> "ERR_INVALID_STRING";
             case ERR_BUFFER_TOO_SMALL -> "ERR_BUFFER_TOO_SMALL";
