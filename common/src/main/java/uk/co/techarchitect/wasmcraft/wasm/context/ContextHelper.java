@@ -1,7 +1,9 @@
 package uk.co.techarchitect.wasmcraft.wasm.context;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.state.BlockState;
 import uk.co.techarchitect.wasmcraft.blockentity.MonitorBlockEntity;
 import uk.co.techarchitect.wasmcraft.peripheral.Peripheral;
 import uk.co.techarchitect.wasmcraft.peripheral.PeripheralManager;
@@ -13,24 +15,27 @@ import java.util.UUID;
 
 import static uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.*;
 
-public class ContextHelper implements RedstoneContext, PeripheralContext, MonitorContext {
+public class ContextHelper implements RedstoneContext, PeripheralContext, MonitorContext, WorldContext {
     private final Map<String, UUID> connectedPeripherals;
     private final int[] redstoneOutputs;
     private final int[] redstoneInputs;
     private final PeripheralProvider peripheralProvider;
     private final LevelProvider levelProvider;
+    private final YawProvider yawProvider;
 
     @Override
     public com.dylibso.chicory.runtime.HostFunction[] toHostFunctions() {
         com.dylibso.chicory.runtime.HostFunction[] redstone = RedstoneContext.super.toHostFunctions();
         com.dylibso.chicory.runtime.HostFunction[] peripheral = PeripheralContext.super.toHostFunctions();
         com.dylibso.chicory.runtime.HostFunction[] monitor = MonitorContext.super.toHostFunctions();
+        com.dylibso.chicory.runtime.HostFunction[] world = WorldContext.super.toHostFunctions();
 
         com.dylibso.chicory.runtime.HostFunction[] combined = new com.dylibso.chicory.runtime.HostFunction[
-            redstone.length + peripheral.length + monitor.length];
+            redstone.length + peripheral.length + monitor.length + world.length];
         System.arraycopy(redstone, 0, combined, 0, redstone.length);
         System.arraycopy(peripheral, 0, combined, redstone.length, peripheral.length);
         System.arraycopy(monitor, 0, combined, redstone.length + peripheral.length, monitor.length);
+        System.arraycopy(world, 0, combined, redstone.length + peripheral.length + monitor.length, world.length);
 
         return combined;
     }
@@ -45,13 +50,31 @@ public class ContextHelper implements RedstoneContext, PeripheralContext, Monito
         ServerLevel getLevel();
     }
 
+    public interface YawProvider {
+        float getYaw();
+    }
+
     public ContextHelper(Map<String, UUID> connectedPeripherals, int[] redstoneOutputs, int[] redstoneInputs,
-                        PeripheralProvider peripheralProvider, LevelProvider levelProvider) {
+                        PeripheralProvider peripheralProvider, LevelProvider levelProvider, YawProvider yawProvider) {
         this.connectedPeripherals = connectedPeripherals;
         this.redstoneOutputs = redstoneOutputs;
         this.redstoneInputs = redstoneInputs;
         this.peripheralProvider = peripheralProvider;
         this.levelProvider = levelProvider;
+        this.yawProvider = yawProvider;
+    }
+
+    @Override
+    public String getSideName(int side) {
+        return switch (side) {
+            case 0 -> "BOTTOM";
+            case 1 -> "TOP";
+            case 2 -> "FRONT";
+            case 3 -> "BACK";
+            case 4 -> "LEFT";
+            case 5 -> "RIGHT";
+            default -> "UNKNOWN(" + side + ")";
+        };
     }
 
     public int getRedstoneInput(int relativeSide, int[] outPower) {
@@ -348,5 +371,62 @@ public class ContextHelper implements RedstoneContext, PeripheralContext, Monito
         }
 
         return null;
+    }
+
+    @Override
+    public int getBlock(int relativeSide, StringBuilder outBlockId) {
+        if (relativeSide < 0 || relativeSide >= 6) {
+            return ERR_WORLD_INVALID_SIDE;
+        }
+
+        ServerLevel level = levelProvider.getLevel();
+        if (level == null || level.isClientSide) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos pos = peripheralProvider.getPosition();
+        Direction absoluteDir = getAbsoluteDirection(relativeSide);
+        BlockPos targetPos = pos.relative(absoluteDir);
+
+        if (targetPos.getY() < level.getMinBuildHeight() || targetPos.getY() > level.getMaxBuildHeight()) {
+            return ERR_WORLD_OUT_OF_BOUNDS;
+        }
+
+        if (!level.isLoaded(targetPos)) {
+            return ERR_WORLD_CHUNK_NOT_LOADED;
+        }
+
+        BlockState blockState = level.getBlockState(targetPos);
+        String blockId = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(blockState.getBlock()).toString();
+        outBlockId.append(blockId);
+
+        return SUCCESS;
+    }
+
+    private Direction getAbsoluteDirection(int relativeSide) {
+        if (yawProvider == null) {
+            return switch (relativeSide) {
+                case 0 -> Direction.DOWN;
+                case 1 -> Direction.UP;
+                case 2 -> Direction.NORTH;
+                case 3 -> Direction.SOUTH;
+                case 4 -> Direction.WEST;
+                case 5 -> Direction.EAST;
+                default -> Direction.NORTH;
+            };
+        }
+
+        float yaw = yawProvider.getYaw();
+        Direction facing = Direction.fromYRot(yaw);
+
+        return switch (relativeSide) {
+            case 0 -> Direction.DOWN;
+            case 1 -> Direction.UP;
+            case 2 -> facing;
+            case 3 -> facing.getOpposite();
+            case 4 -> facing.getCounterClockWise();
+            case 5 -> facing.getClockWise();
+            default -> Direction.NORTH;
+        };
     }
 }

@@ -33,6 +33,11 @@ public class WasmErrorCodes {
     public static final int ERR_MOVEMENT_NOT_SUPPORTED = 83;
     public static final int ERR_MOVEMENT_IN_PROGRESS = 84;
 
+    // World errors (100-119)
+    public static final int ERR_WORLD_INVALID_SIDE = 100;
+    public static final int ERR_WORLD_OUT_OF_BOUNDS = 101;
+    public static final int ERR_WORLD_CHUNK_NOT_LOADED = 102;
+
     public static final int ERROR_MESSAGE_PTR = 28672;
     public static final int ERROR_MESSAGE_MAX_LEN = 1024;
 
@@ -56,6 +61,9 @@ public class WasmErrorCodes {
             case ERR_MOVEMENT_INVALID_DISTANCE -> "ERR_MOVEMENT_INVALID_DISTANCE";
             case ERR_MOVEMENT_NOT_SUPPORTED -> "ERR_MOVEMENT_NOT_SUPPORTED";
             case ERR_MOVEMENT_IN_PROGRESS -> "ERR_MOVEMENT_IN_PROGRESS";
+            case ERR_WORLD_INVALID_SIDE -> "ERR_WORLD_INVALID_SIDE";
+            case ERR_WORLD_OUT_OF_BOUNDS -> "ERR_WORLD_OUT_OF_BOUNDS";
+            case ERR_WORLD_CHUNK_NOT_LOADED -> "ERR_WORLD_CHUNK_NOT_LOADED";
             case ERR_INVALID_PARAMETER -> "ERR_INVALID_PARAMETER";
             case ERR_INVALID_STRING -> "ERR_INVALID_STRING";
             case ERR_BUFFER_TOO_SMALL -> "ERR_BUFFER_TOO_SMALL";

@@ -75,6 +75,12 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext {
                 public net.minecraft.server.level.ServerLevel getLevel() {
                     return level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
                 }
+            },
+            new ContextHelper.YawProvider() {
+                @Override
+                public float getYaw() {
+                    return getYRot();
+                }
             }
         );
     }

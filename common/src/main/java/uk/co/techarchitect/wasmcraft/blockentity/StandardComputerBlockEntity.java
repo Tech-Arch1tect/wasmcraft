@@ -60,6 +60,13 @@ public class StandardComputerBlockEntity extends ComputerBlockEntityBase {
                 public net.minecraft.server.level.ServerLevel getLevel() {
                     return level instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
                 }
+            },
+            new ContextHelper.YawProvider() {
+                @Override
+                public float getYaw() {
+                    Direction facing = getBlockState().getValue(uk.co.techarchitect.wasmcraft.block.ComputerBlock.FACING);
+                    return facing.toYRot();
+                }
             }
         );
     }
