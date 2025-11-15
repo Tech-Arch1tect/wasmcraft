@@ -30,6 +30,12 @@ func getPositionRaw() uint32
 //go:wasmimport env rotate
 func rotateRaw(yawDegrees uint32) uint32
 
+//go:wasmimport env get_yaw
+func getYawRaw() uint32
+
+//go:wasmimport env set_yaw
+func setYawRaw(yawDegrees uint32) uint32
+
 const MOVEMENT_RESULT_PTR = 40960
 
 type Position struct {
@@ -113,6 +119,19 @@ func Rotate(yawDegrees float32) float32 {
 
 	actualYaw := *(*float32)(unsafe.Pointer(uintptr(MOVEMENT_RESULT_PTR + 4)))
 	return actualYaw
+}
+
+func GetYaw() float32 {
+	errorCode := getYawRaw()
+	errors.Check(int(errorCode))
+
+	yaw := *(*float32)(unsafe.Pointer(uintptr(MOVEMENT_RESULT_PTR + 4)))
+	return yaw
+}
+
+func SetYaw(yawDegrees float32) {
+	errorCode := setYawRaw(floatToUint32(yawDegrees))
+	errors.Check(int(errorCode))
 }
 
 func readMovementResult() MovementResult {

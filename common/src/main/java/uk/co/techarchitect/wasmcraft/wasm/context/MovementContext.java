@@ -15,6 +15,8 @@ public interface MovementContext extends WasmContext {
     int moveRelative(float forward, float strafe, float vertical, float[] outActualMovement);
     int rotate(float yawDegrees, float[] outActualYaw);
     int getPosition(double[] outPosition);
+    int getYaw(float[] outYaw);
+    int setYaw(float yawDegrees);
 
     @Override
     default HostFunction[] toHostFunctions() {
@@ -180,6 +182,39 @@ public interface MovementContext extends WasmContext {
 
                     if (errorCode != SUCCESS) {
                         WasmErrorHelper.writeErrorMessage(instance, getMovementErrorMessage(errorCode, "rotate"));
+                    }
+                    return new long[] { errorCode };
+                }
+            ),
+            new HostFunction(
+                "env",
+                "get_yaw",
+                List.of(),
+                List.of(ValueType.I32),
+                (instance, args) -> {
+                    float[] yaw = new float[1];
+                    int errorCode = getYaw(yaw);
+
+                    instance.memory().writeI32(MOVEMENT_RESULT_PTR, errorCode);
+                    instance.memory().writeF32(MOVEMENT_RESULT_PTR + 4, yaw[0]);
+
+                    if (errorCode != SUCCESS) {
+                        WasmErrorHelper.writeErrorMessage(instance, getMovementErrorMessage(errorCode, "get_yaw"));
+                    }
+                    return new long[] { errorCode };
+                }
+            ),
+            new HostFunction(
+                "env",
+                "set_yaw",
+                List.of(ValueType.I32),
+                List.of(ValueType.I32),
+                (instance, args) -> {
+                    float yawDegrees = Float.intBitsToFloat((int) args[0]);
+                    int errorCode = setYaw(yawDegrees);
+
+                    if (errorCode != SUCCESS) {
+                        WasmErrorHelper.writeErrorMessage(instance, getMovementErrorMessage(errorCode, "set_yaw"));
                     }
                     return new long[] { errorCode };
                 }

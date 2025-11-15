@@ -242,8 +242,8 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext {
         float cos = (float) Math.cos(yawRad);
         float sin = (float) Math.sin(yawRad);
 
-        double dx = forward * cos - strafe * sin;
-        double dz = forward * sin + strafe * cos;
+        double dx = -forward * sin - strafe * cos;
+        double dz = forward * cos - strafe * sin;
         double dy = vertical;
 
         Vec3 currentPos = position();
@@ -303,6 +303,26 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext {
         outPosition[0] = pos.x;
         outPosition[1] = pos.y;
         outPosition[2] = pos.z;
+        return uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.SUCCESS;
+    }
+
+    @Override
+    public int getYaw(float[] outYaw) {
+        float yaw = getYRot();
+        if (yaw < 0) yaw += 360;
+        outYaw[0] = yaw % 360;
+        return uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.SUCCESS;
+    }
+
+    @Override
+    public int setYaw(float yawDegrees) {
+        float normalizedYaw = yawDegrees % 360;
+        if (normalizedYaw < 0) normalizedYaw += 360;
+
+        setYRot(normalizedYaw);
+        setYHeadRot(normalizedYaw);
+        yRotO = normalizedYaw;
+
         return uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.SUCCESS;
     }
 
