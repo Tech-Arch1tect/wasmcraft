@@ -36,9 +36,11 @@ const (
 	ERR_MOVEMENT_IN_PROGRESS      = 84
 
 	// World errors (100-119)
-	ERR_WORLD_INVALID_SIDE      = 100
-	ERR_WORLD_OUT_OF_BOUNDS     = 101
-	ERR_WORLD_CHUNK_NOT_LOADED  = 102
+	ERR_WORLD_INVALID_SIDE         = 100
+	ERR_WORLD_OUT_OF_BOUNDS        = 101
+	ERR_WORLD_CHUNK_NOT_LOADED     = 102
+	ERR_WORLD_PROPERTY_NOT_FOUND   = 103
+	ERR_WORLD_INVALID_TAG          = 104
 
 	// Memory address for error messages
 	ERROR_MESSAGE_PTR     = 28672
@@ -144,6 +146,10 @@ func getDefaultErrorMessage(errorCode int) string {
 		return "Position out of world bounds"
 	case ERR_WORLD_CHUNK_NOT_LOADED:
 		return "Chunk not loaded at specified position"
+	case ERR_WORLD_PROPERTY_NOT_FOUND:
+		return "Block property not found"
+	case ERR_WORLD_INVALID_TAG:
+		return "Invalid block tag format"
 	case ERR_INVALID_PARAMETER:
 		return "Invalid parameter"
 	case ERR_INVALID_STRING:

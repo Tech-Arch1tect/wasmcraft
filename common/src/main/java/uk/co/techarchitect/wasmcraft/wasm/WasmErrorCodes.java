@@ -37,6 +37,8 @@ public class WasmErrorCodes {
     public static final int ERR_WORLD_INVALID_SIDE = 100;
     public static final int ERR_WORLD_OUT_OF_BOUNDS = 101;
     public static final int ERR_WORLD_CHUNK_NOT_LOADED = 102;
+    public static final int ERR_WORLD_PROPERTY_NOT_FOUND = 103;
+    public static final int ERR_WORLD_INVALID_TAG = 104;
 
     public static final int ERROR_MESSAGE_PTR = 28672;
     public static final int ERROR_MESSAGE_MAX_LEN = 1024;
@@ -64,6 +66,8 @@ public class WasmErrorCodes {
             case ERR_WORLD_INVALID_SIDE -> "ERR_WORLD_INVALID_SIDE";
             case ERR_WORLD_OUT_OF_BOUNDS -> "ERR_WORLD_OUT_OF_BOUNDS";
             case ERR_WORLD_CHUNK_NOT_LOADED -> "ERR_WORLD_CHUNK_NOT_LOADED";
+            case ERR_WORLD_PROPERTY_NOT_FOUND -> "ERR_WORLD_PROPERTY_NOT_FOUND";
+            case ERR_WORLD_INVALID_TAG -> "ERR_WORLD_INVALID_TAG";
             case ERR_INVALID_PARAMETER -> "ERR_INVALID_PARAMETER";
             case ERR_INVALID_STRING -> "ERR_INVALID_STRING";
             case ERR_BUFFER_TOO_SMALL -> "ERR_BUFFER_TOO_SMALL";

@@ -403,6 +403,181 @@ public class ContextHelper implements RedstoneContext, PeripheralContext, Monito
         return SUCCESS;
     }
 
+    @Override
+    public int getBlockProperty(int relativeSide, String propertyName, StringBuilder outValue) {
+        if (relativeSide < 0 || relativeSide >= 6) {
+            return ERR_WORLD_INVALID_SIDE;
+        }
+
+        ServerLevel level = levelProvider.getLevel();
+        if (level == null || level.isClientSide) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos pos = peripheralProvider.getPosition();
+        Direction absoluteDir = getAbsoluteDirection(relativeSide);
+        BlockPos targetPos = pos.relative(absoluteDir);
+
+        if (targetPos.getY() < level.getMinBuildHeight() || targetPos.getY() > level.getMaxBuildHeight()) {
+            return ERR_WORLD_OUT_OF_BOUNDS;
+        }
+
+        if (!level.isLoaded(targetPos)) {
+            return ERR_WORLD_CHUNK_NOT_LOADED;
+        }
+
+        BlockState blockState = level.getBlockState(targetPos);
+
+        net.minecraft.world.level.block.state.properties.Property<?> property = blockState.getBlock()
+            .getStateDefinition()
+            .getProperty(propertyName);
+
+        if (property == null) {
+            return ERR_WORLD_PROPERTY_NOT_FOUND;
+        }
+
+        Comparable<?> value = blockState.getValue(property);
+        outValue.append(value.toString());
+
+        return SUCCESS;
+    }
+
+    @Override
+    public int hasBlockTag(int relativeSide, String tagName, int[] outHasTag) {
+        if (relativeSide < 0 || relativeSide >= 6) {
+            return ERR_WORLD_INVALID_SIDE;
+        }
+
+        ServerLevel level = levelProvider.getLevel();
+        if (level == null || level.isClientSide) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos pos = peripheralProvider.getPosition();
+        Direction absoluteDir = getAbsoluteDirection(relativeSide);
+        BlockPos targetPos = pos.relative(absoluteDir);
+
+        if (targetPos.getY() < level.getMinBuildHeight() || targetPos.getY() > level.getMaxBuildHeight()) {
+            return ERR_WORLD_OUT_OF_BOUNDS;
+        }
+
+        if (!level.isLoaded(targetPos)) {
+            return ERR_WORLD_CHUNK_NOT_LOADED;
+        }
+
+        BlockState blockState = level.getBlockState(targetPos);
+
+        try {
+            net.minecraft.resources.ResourceLocation tagLocation = net.minecraft.resources.ResourceLocation.parse(tagName);
+            net.minecraft.tags.TagKey<net.minecraft.world.level.block.Block> tagKey =
+                net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK, tagLocation);
+
+            boolean hasTag = blockState.is(tagKey);
+            outHasTag[0] = hasTag ? 1 : 0;
+
+            return SUCCESS;
+        } catch (Exception e) {
+            return ERR_WORLD_INVALID_TAG;
+        }
+    }
+
+    @Override
+    public int getBlockTags(int relativeSide, StringBuilder outTags) {
+        if (relativeSide < 0 || relativeSide >= 6) {
+            return ERR_WORLD_INVALID_SIDE;
+        }
+
+        ServerLevel level = levelProvider.getLevel();
+        if (level == null || level.isClientSide) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos pos = peripheralProvider.getPosition();
+        Direction absoluteDir = getAbsoluteDirection(relativeSide);
+        BlockPos targetPos = pos.relative(absoluteDir);
+
+        if (targetPos.getY() < level.getMinBuildHeight() || targetPos.getY() > level.getMaxBuildHeight()) {
+            return ERR_WORLD_OUT_OF_BOUNDS;
+        }
+
+        if (!level.isLoaded(targetPos)) {
+            return ERR_WORLD_CHUNK_NOT_LOADED;
+        }
+
+        BlockState blockState = level.getBlockState(targetPos);
+
+        java.util.stream.Stream<net.minecraft.tags.TagKey<net.minecraft.world.level.block.Block>> tags =
+            blockState.getTags();
+
+        java.util.List<String> tagStrings = tags
+            .map(tag -> tag.location().toString())
+            .sorted()
+            .toList();
+
+        if (tagStrings.isEmpty()) {
+            outTags.append("[]");
+        } else {
+            outTags.append("[");
+            for (int i = 0; i < tagStrings.size(); i++) {
+                if (i > 0) outTags.append(",");
+                outTags.append("\"").append(tagStrings.get(i)).append("\"");
+            }
+            outTags.append("]");
+        }
+
+        return SUCCESS;
+    }
+
+    @Override
+    public int getBlockProperties(int relativeSide, StringBuilder outProperties) {
+        if (relativeSide < 0 || relativeSide >= 6) {
+            return ERR_WORLD_INVALID_SIDE;
+        }
+
+        ServerLevel level = levelProvider.getLevel();
+        if (level == null || level.isClientSide) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos pos = peripheralProvider.getPosition();
+        Direction absoluteDir = getAbsoluteDirection(relativeSide);
+        BlockPos targetPos = pos.relative(absoluteDir);
+
+        if (targetPos.getY() < level.getMinBuildHeight() || targetPos.getY() > level.getMaxBuildHeight()) {
+            return ERR_WORLD_OUT_OF_BOUNDS;
+        }
+
+        if (!level.isLoaded(targetPos)) {
+            return ERR_WORLD_CHUNK_NOT_LOADED;
+        }
+
+        BlockState blockState = level.getBlockState(targetPos);
+
+        java.util.Collection<net.minecraft.world.level.block.state.properties.Property<?>> properties =
+            blockState.getProperties();
+
+        if (properties.isEmpty()) {
+            outProperties.append("{}");
+        } else {
+            outProperties.append("{");
+            boolean first = true;
+            for (net.minecraft.world.level.block.state.properties.Property<?> property : properties) {
+                if (!first) outProperties.append(",");
+                first = false;
+
+                String propertyName = property.getName();
+                Comparable<?> value = blockState.getValue(property);
+                String valueStr = value.toString();
+
+                outProperties.append("\"").append(propertyName).append("\":");
+                outProperties.append("\"").append(valueStr).append("\"");
+            }
+            outProperties.append("}");
+        }
+
+        return SUCCESS;
+    }
+
     private Direction getAbsoluteDirection(int relativeSide) {
         if (yawProvider == null) {
             return switch (relativeSide) {
