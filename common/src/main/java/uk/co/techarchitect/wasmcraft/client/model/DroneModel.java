@@ -2,18 +2,21 @@ package uk.co.techarchitect.wasmcraft.client.model;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.model.ArmedModel;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.*;
+import net.minecraft.world.entity.HumanoidArm;
 import uk.co.techarchitect.wasmcraft.entity.DroneEntity;
 
-public class DroneModel extends EntityModel<DroneEntity> {
+public class DroneModel extends EntityModel<DroneEntity> implements ArmedModel {
     private final ModelPart body;
     private final ModelPart rotorFrontLeft;
     private final ModelPart rotorFrontRight;
     private final ModelPart rotorBackLeft;
     private final ModelPart rotorBackRight;
+    private final ModelPart itemHolder;
 
     public DroneModel(ModelPart root) {
         this.body = root.getChild("body");
@@ -21,6 +24,7 @@ public class DroneModel extends EntityModel<DroneEntity> {
         this.rotorFrontRight = root.getChild("rotor_front_right");
         this.rotorBackLeft = root.getChild("rotor_back_left");
         this.rotorBackRight = root.getChild("rotor_back_right");
+        this.itemHolder = root.getChild("item_holder");
     }
 
     public static LayerDefinition createBodyLayer() {
@@ -57,6 +61,10 @@ public class DroneModel extends EntityModel<DroneEntity> {
                         .addBox(-2.0F, -0.5F, -2.0F, 4.0F, 1.0F, 4.0F),
                 PartPose.offset(5.0F, 17.0F, 5.0F));
 
+        partdefinition.addOrReplaceChild("item_holder",
+                CubeListBuilder.create(),
+                PartPose.offset(0.0F, 18.0F, -5.0F));
+
         return LayerDefinition.create(meshdefinition, 64, 64);
     }
 
@@ -70,6 +78,16 @@ public class DroneModel extends EntityModel<DroneEntity> {
 
         float bob = (float) Math.sin(ageInTicks * 0.1F) * 0.05F;
         this.body.y = 20.0F + bob;
+
+        float attackAnim = entity.getAttackAnim(limbSwing);
+        if (attackAnim > 0) {
+            float swingAngle = (float) Math.sin(attackAnim * Math.PI);
+            this.body.xRot = swingAngle * 0.4F;
+            this.itemHolder.xRot = swingAngle * -0.5F;
+        } else {
+            this.body.xRot = 0.0F;
+            this.itemHolder.xRot = 0.0F;
+        }
     }
 
     @Override
@@ -79,5 +97,10 @@ public class DroneModel extends EntityModel<DroneEntity> {
         rotorFrontRight.render(poseStack, buffer, packedLight, packedOverlay, color);
         rotorBackLeft.render(poseStack, buffer, packedLight, packedOverlay, color);
         rotorBackRight.render(poseStack, buffer, packedLight, packedOverlay, color);
+    }
+
+    @Override
+    public void translateToHand(HumanoidArm arm, PoseStack poseStack) {
+        this.itemHolder.translateAndRotate(poseStack);
     }
 }

@@ -36,6 +36,7 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
     private static final double PERIPHERAL_RANGE = 16.0;
     private static final EntityDataAccessor<Float> HOVER_HEIGHT = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Integer> SELECTED_SLOT = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> ATTACK_TIME = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.INT);
 
     private final SimpleContainer inventory;
     private final int[] redstoneOutputs = new int[6];
@@ -112,6 +113,7 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
         super.defineSynchedData(builder);
         builder.define(HOVER_HEIGHT, 1.0f);
         builder.define(SELECTED_SLOT, 0);
+        builder.define(ATTACK_TIME, 0);
     }
 
     @Override
@@ -161,6 +163,11 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
                 setDeltaMovement(Vec3.ZERO);
             }
             updateRedstoneInputs();
+
+            int currentAttackTime = entityData.get(ATTACK_TIME);
+            if (currentAttackTime > 0) {
+                entityData.set(ATTACK_TIME, currentAttackTime - 1);
+            }
         }
     }
 
@@ -198,6 +205,31 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
 
     public int getSelectedSlot() {
         return this.entityData.get(SELECTED_SLOT);
+    }
+
+    public int getAttackTime() {
+        return this.entityData.get(ATTACK_TIME);
+    }
+
+    public float getAttackAnim(float partialTick) {
+        int attackTime = getAttackTime();
+        if (attackTime == 0) return 0.0f;
+        return (attackTime - partialTick) / 10.0f;
+    }
+
+    @Override
+    public net.minecraft.world.item.ItemStack getItemBySlot(net.minecraft.world.entity.EquipmentSlot slot) {
+        if (slot == net.minecraft.world.entity.EquipmentSlot.MAINHAND) {
+            return inventory.getItem(getSelectedSlot());
+        }
+        return net.minecraft.world.item.ItemStack.EMPTY;
+    }
+
+    @Override
+    public void setItemSlot(net.minecraft.world.entity.EquipmentSlot slot, net.minecraft.world.item.ItemStack stack) {
+        if (slot == net.minecraft.world.entity.EquipmentSlot.MAINHAND) {
+            inventory.setItem(getSelectedSlot(), stack);
+        }
     }
 
     @Override
@@ -548,6 +580,8 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
                 return ERR_WORLD_WRONG_TOOL;
             }
         }
+
+        entityData.set(ATTACK_TIME, 10);
 
         boolean broken = serverLevel.destroyBlock(targetPos, true, this);
         if (!broken) {
