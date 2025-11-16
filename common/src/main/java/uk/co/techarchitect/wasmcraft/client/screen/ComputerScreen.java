@@ -187,6 +187,17 @@ public class ComputerScreen extends AbstractContainerScreen<ComputerMenu> {
     protected void renderSlot(GuiGraphics graphics, net.minecraft.world.inventory.Slot slot) {
         if (menu.hasInventory() && menu.getCurrentTab() == ComputerMenu.Tab.INVENTORY) {
             super.renderSlot(graphics, slot);
+
+            if (slot.index < menu.getInventorySize() && menu.getProvider() instanceof uk.co.techarchitect.wasmcraft.entity.DroneEntity drone) {
+                if (slot.index == drone.getSelectedSlot()) {
+                    int x = slot.x;
+                    int y = slot.y;
+                    graphics.fill(x, y, x + 16, y + 1, 0xFFFFFFFF);
+                    graphics.fill(x, y, x + 1, y + 16, 0xFFFFFFFF);
+                    graphics.fill(x + 15, y, x + 16, y + 16, 0xFFFFFFFF);
+                    graphics.fill(x, y + 15, x + 16, y + 16, 0xFFFFFFFF);
+                }
+            }
         }
     }
 

@@ -18,6 +18,7 @@ import uk.co.techarchitect.wasmcraft.computer.command.builtin.*;
 import uk.co.techarchitect.wasmcraft.menu.InventoryProvider;
 import uk.co.techarchitect.wasmcraft.wasm.WasmContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.ContextHelper;
+import uk.co.techarchitect.wasmcraft.wasm.context.InventoryContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.MonitorContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.MovementContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.PeripheralContext;
@@ -27,10 +28,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class DroneEntity extends ComputerEntityBase implements MovementContext, InventoryProvider {
+import static uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.*;
+
+public class DroneEntity extends ComputerEntityBase implements MovementContext, InventoryProvider, InventoryContext {
     private static final int INVENTORY_SIZE = 27;
     private static final double PERIPHERAL_RANGE = 16.0;
     private static final EntityDataAccessor<Float> HOVER_HEIGHT = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Integer> SELECTED_SLOT = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.INT);
 
     private final SimpleContainer inventory;
     private final int[] redstoneOutputs = new int[6];
@@ -106,6 +110,7 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(HOVER_HEIGHT, 1.0f);
+        builder.define(SELECTED_SLOT, 0);
     }
 
     @Override
@@ -122,6 +127,19 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
     @Override
     protected WasmContext[] getContexts() {
         return new WasmContext[] { contextHelper, this };
+    }
+
+    @Override
+    public com.dylibso.chicory.runtime.HostFunction[] toHostFunctions() {
+        com.dylibso.chicory.runtime.HostFunction[] movement = MovementContext.super.toHostFunctions();
+        com.dylibso.chicory.runtime.HostFunction[] inventory = InventoryContext.super.toHostFunctions();
+
+        com.dylibso.chicory.runtime.HostFunction[] combined = new com.dylibso.chicory.runtime.HostFunction[
+            movement.length + inventory.length];
+        System.arraycopy(movement, 0, combined, 0, movement.length);
+        System.arraycopy(inventory, 0, combined, movement.length, inventory.length);
+
+        return combined;
     }
 
     @Override
@@ -175,6 +193,50 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
         return INVENTORY_SIZE;
     }
 
+    public int getSelectedSlot() {
+        return this.entityData.get(SELECTED_SLOT);
+    }
+
+    @Override
+    public int getSelectedSlot(int[] outSlot) {
+        outSlot[0] = this.entityData.get(SELECTED_SLOT);
+        return SUCCESS;
+    }
+
+    @Override
+    public int setSelectedSlot(int slot) {
+        if (slot < 0 || slot >= INVENTORY_SIZE) {
+            return ERR_INVALID_PARAMETER;
+        }
+        this.entityData.set(SELECTED_SLOT, slot);
+        return SUCCESS;
+    }
+
+    @Override
+    public int getInventorySize(int[] outSize) {
+        outSize[0] = INVENTORY_SIZE;
+        return SUCCESS;
+    }
+
+    @Override
+    public int getItem(int slot, StringBuilder outItemId, int[] outCount) {
+        if (slot < 0 || slot >= INVENTORY_SIZE) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        net.minecraft.world.item.ItemStack stack = inventory.getItem(slot);
+        if (stack.isEmpty()) {
+            outItemId.append("minecraft:air");
+            outCount[0] = 0;
+        } else {
+            String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+            outItemId.append(itemId);
+            outCount[0] = stack.getCount();
+        }
+
+        return SUCCESS;
+    }
+
     @Override
     public void prepareForExecution() {
         updateRedstoneInputs();
@@ -206,6 +268,7 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
         }
         tag.put("Inventory", inventoryTag);
 
+        tag.putInt("SelectedSlot", this.entityData.get(SELECTED_SLOT));
         tag.putIntArray("RedstoneOutputs", redstoneOutputs);
 
         CompoundTag peripheralsTag = new CompoundTag();
@@ -227,6 +290,10 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
                     inventory.setItem(i, net.minecraft.world.item.ItemStack.parseOptional(level().registryAccess(), itemTag));
                 }
             }
+        }
+
+        if (tag.contains("SelectedSlot")) {
+            this.entityData.set(SELECTED_SLOT, tag.getInt("SelectedSlot"));
         }
 
         if (tag.contains("RedstoneOutputs")) {

@@ -8,17 +8,9 @@ import uk.co.techarchitect.wasmcraft.wasm.WasmErrorHelper;
 import java.util.List;
 
 import static uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.*;
+import static uk.co.techarchitect.wasmcraft.wasm.WasmMemoryMap.*;
 
 public interface WorldContext extends WasmContext {
-    int WORLD_RESULT_PTR = 49152;
-    int WORLD_BLOCK_ID_PTR = 53248;
-    int WORLD_BLOCK_ID_MAX_LEN = 256;
-    int WORLD_PROPERTY_VALUE_PTR = 53504;
-    int WORLD_PROPERTY_VALUE_MAX_LEN = 64;
-    int WORLD_TAGS_PTR = 53568;
-    int WORLD_TAGS_MAX_LEN = 2048;
-    int WORLD_PROPERTIES_PTR = 55616;
-    int WORLD_PROPERTIES_MAX_LEN = 2048;
 
     int BOTTOM = 0;
     int TOP = 1;

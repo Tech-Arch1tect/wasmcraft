@@ -8,9 +8,9 @@ import uk.co.techarchitect.wasmcraft.wasm.WasmErrorHelper;
 import java.util.List;
 
 import static uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.*;
+import static uk.co.techarchitect.wasmcraft.wasm.WasmMemoryMap.*;
 
 public interface MovementContext extends WasmContext {
-    int MOVEMENT_RESULT_PTR = 40960;
 
     int moveRelative(float forward, float strafe, float vertical, float[] outActualMovement);
     int rotate(float yawDegrees, float[] outActualYaw);
