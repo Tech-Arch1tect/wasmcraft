@@ -38,6 +38,9 @@ func canBreakRaw(side int32) uint32
 //go:wasmimport env world_break_block
 func breakBlockRaw(side int32) uint32
 
+//go:wasmimport env world_place_block
+func placeBlockRaw(side int32) uint32
+
 func GetBlock(side int) string {
 	resultPtr := getBlockRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
@@ -148,6 +151,12 @@ func CanBreak(side int) bool {
 
 func BreakBlock(side int) {
 	resultPtr := breakBlockRaw(int32(side))
+	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
+	errors.Check(int(errorCode))
+}
+
+func PlaceBlock(side int) {
+	resultPtr := placeBlockRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	errors.Check(int(errorCode))
 }

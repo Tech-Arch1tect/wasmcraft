@@ -16,6 +16,8 @@ public interface WorldInteractionContext extends WasmContext {
 
     int breakBlock(int relativeSide);
 
+    int placeBlock(int relativeSide);
+
     @Override
     default HostFunction[] toHostFunctions() {
         return new HostFunction[] {
@@ -56,6 +58,24 @@ public interface WorldInteractionContext extends WasmContext {
 
                     return new long[] { WORLD_INTERACTION_RESULT_PTR };
                 }
+            ),
+            new HostFunction(
+                "env",
+                "world_place_block",
+                List.of(ValueType.I32),
+                List.of(ValueType.I32),
+                (instance, args) -> {
+                    int relativeSide = (int) args[0];
+                    int errorCode = placeBlock(relativeSide);
+
+                    instance.memory().writeI32(WORLD_INTERACTION_RESULT_PTR, errorCode);
+
+                    if (errorCode != SUCCESS) {
+                        WasmErrorHelper.writeErrorMessage(instance, getPlaceBlockErrorMessage(errorCode));
+                    }
+
+                    return new long[] { WORLD_INTERACTION_RESULT_PTR };
+                }
             )
         };
     }
@@ -66,6 +86,18 @@ public interface WorldInteractionContext extends WasmContext {
             case ERR_WORLD_WRONG_TOOL -> "Wrong tool or insufficient tier for this block";
             case ERR_WORLD_UNBREAKABLE -> "Block cannot be broken (bedrock, barrier, etc.)";
             case ERR_WORLD_PROTECTED -> "Block is protected (spawn protection, claims, etc.)";
+            case ERR_INVALID_PARAMETER -> "Invalid parameter";
+            default -> "Unknown world interaction error: " + getErrorName(errorCode);
+        };
+    }
+
+    default String getPlaceBlockErrorMessage(int errorCode) {
+        return switch (errorCode) {
+            case ERR_WORLD_INVALID_SIDE -> "Invalid side (must be 0=BOTTOM, 1=TOP, or 2=FRONT)";
+            case ERR_WORLD_NO_BLOCK -> "No block item in selected slot";
+            case ERR_WORLD_CANNOT_PLACE -> "Cannot place this block here";
+            case ERR_WORLD_SPACE_OCCUPIED -> "Target space is already occupied";
+            case ERR_WORLD_PROTECTED -> "Cannot place in protected area (spawn protection, claims, etc.)";
             case ERR_INVALID_PARAMETER -> "Invalid parameter";
             default -> "Unknown world interaction error: " + getErrorName(errorCode);
         };

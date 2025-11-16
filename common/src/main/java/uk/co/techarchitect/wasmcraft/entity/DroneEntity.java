@@ -596,6 +596,64 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
         return SUCCESS;
     }
 
+    @Override
+    public int placeBlock(int relativeSide) {
+        if (relativeSide < 0 || relativeSide > 2) {
+            return ERR_WORLD_INVALID_SIDE;
+        }
+
+        net.minecraft.server.level.ServerLevel serverLevel = level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
+        if (serverLevel == null || serverLevel.isClientSide) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        int selectedSlot = getSelectedSlot();
+        net.minecraft.world.item.ItemStack blockStack = inventory.getItem(selectedSlot);
+
+        if (blockStack.isEmpty()) {
+            return ERR_WORLD_NO_BLOCK;
+        }
+
+        if (!(blockStack.getItem() instanceof net.minecraft.world.item.BlockItem blockItem)) {
+            return ERR_WORLD_NO_BLOCK;
+        }
+
+        BlockPos entityPos = blockPosition();
+        Direction absoluteDir = getAbsoluteDirectionFromRelative(relativeSide);
+        BlockPos targetPos = entityPos.relative(absoluteDir);
+
+        net.minecraft.world.level.block.state.BlockState targetState = serverLevel.getBlockState(targetPos);
+        if (!targetState.canBeReplaced()) {
+            return ERR_WORLD_SPACE_OCCUPIED;
+        }
+
+        net.minecraft.world.level.block.Block block = blockItem.getBlock();
+        net.minecraft.world.level.block.state.BlockState placementState = block.defaultBlockState();
+
+        if (!placementState.canSurvive(serverLevel, targetPos)) {
+            return ERR_WORLD_CANNOT_PLACE;
+        }
+
+        entityData.set(ATTACK_TIME, 10);
+
+        boolean placed = serverLevel.setBlock(targetPos, placementState, 3);
+        if (!placed) {
+            return ERR_WORLD_PROTECTED;
+        }
+
+        block.setPlacedBy(serverLevel, targetPos, placementState, this, blockStack);
+        serverLevel.gameEvent(this, net.minecraft.world.level.gameevent.GameEvent.BLOCK_PLACE, targetPos);
+
+        if (!blockStack.isEmpty() && !blockStack.has(net.minecraft.core.component.DataComponents.CREATIVE_SLOT_LOCK)) {
+            blockStack.shrink(1);
+            if (blockStack.isEmpty()) {
+                inventory.setItem(selectedSlot, net.minecraft.world.item.ItemStack.EMPTY);
+            }
+        }
+
+        return SUCCESS;
+    }
+
     private Direction getAbsoluteDirectionFromRelative(int relativeSide) {
         float yaw = getYRot();
         Direction facing = Direction.fromYRot(yaw);
