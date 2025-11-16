@@ -45,92 +45,113 @@ type MovementResult struct {
 	X, Y, Z float32
 }
 
-func MoveForward(distance float32) MovementResult {
+func MoveForward(distance float32) (MovementResult, error) {
 	if distance < 0 {
 		distance = 0
 	}
 	errorCode := moveForward(floatToUint32(distance))
-	errors.Check(int(errorCode))
-	return readMovementResult()
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return MovementResult{}, err
+	}
+	return readMovementResult(), nil
 }
 
-func MoveBackward(distance float32) MovementResult {
+func MoveBackward(distance float32) (MovementResult, error) {
 	if distance < 0 {
 		distance = 0
 	}
 	errorCode := moveBackward(floatToUint32(distance))
-	errors.Check(int(errorCode))
-	return readMovementResult()
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return MovementResult{}, err
+	}
+	return readMovementResult(), nil
 }
 
-func MoveLeft(distance float32) MovementResult {
+func MoveLeft(distance float32) (MovementResult, error) {
 	if distance < 0 {
 		distance = 0
 	}
 	errorCode := moveLeft(floatToUint32(distance))
-	errors.Check(int(errorCode))
-	return readMovementResult()
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return MovementResult{}, err
+	}
+	return readMovementResult(), nil
 }
 
-func MoveRight(distance float32) MovementResult {
+func MoveRight(distance float32) (MovementResult, error) {
 	if distance < 0 {
 		distance = 0
 	}
 	errorCode := moveRight(floatToUint32(distance))
-	errors.Check(int(errorCode))
-	return readMovementResult()
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return MovementResult{}, err
+	}
+	return readMovementResult(), nil
 }
 
-func MoveUp(distance float32) MovementResult {
+func MoveUp(distance float32) (MovementResult, error) {
 	if distance < 0 {
 		distance = 0
 	}
 	errorCode := moveUp(floatToUint32(distance))
-	errors.Check(int(errorCode))
-	return readMovementResult()
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return MovementResult{}, err
+	}
+	return readMovementResult(), nil
 }
 
-func MoveDown(distance float32) MovementResult {
+func MoveDown(distance float32) (MovementResult, error) {
 	if distance < 0 {
 		distance = 0
 	}
 	errorCode := moveDown(floatToUint32(distance))
-	errors.Check(int(errorCode))
-	return readMovementResult()
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return MovementResult{}, err
+	}
+	return readMovementResult(), nil
 }
 
-func GetPosition() Position {
+func GetPosition() (Position, error) {
 	resultPtr := getPositionRaw()
 
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return Position{}, err
+	}
 
 	x := *(*float64)(unsafe.Pointer(uintptr(resultPtr + 4)))
 	y := *(*float64)(unsafe.Pointer(uintptr(resultPtr + 12)))
 	z := *(*float64)(unsafe.Pointer(uintptr(resultPtr + 20)))
 
-	return Position{X: x, Y: y, Z: z}
+	return Position{X: x, Y: y, Z: z}, nil
 }
 
-func Rotate(yawDegrees float32) float32 {
+func Rotate(yawDegrees float32) (float32, error) {
 	errorCode := rotateRaw(floatToUint32(yawDegrees))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return 0, err
+	}
 
 	actualYaw := *(*float32)(unsafe.Pointer(uintptr(memory.MOVEMENT_RESULT_PTR + 4)))
-	return actualYaw
+	return actualYaw, nil
 }
 
-func GetYaw() float32 {
+func GetYaw() (float32, error) {
 	errorCode := getYawRaw()
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return 0, err
+	}
 
 	yaw := *(*float32)(unsafe.Pointer(uintptr(memory.MOVEMENT_RESULT_PTR + 4)))
-	return yaw
+	return yaw, nil
 }
 
-func SetYaw(yawDegrees float32) {
+func SetYaw(yawDegrees float32) error {
 	errorCode := setYawRaw(floatToUint32(yawDegrees))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return err
+	}
+	return nil
 }
 
 func readMovementResult() MovementResult {

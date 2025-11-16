@@ -51,13 +51,16 @@ func (p *Panel) SetPadding(padding int) {
 	p.Padding = padding
 }
 
-func (p *Panel) MinSize(monitorID string) (width, height int) {
+func (p *Panel) MinSize(monitorID string) (width, height int, err error) {
 	minWidth := 2
 	minHeight := 2
 
 	titleBarHeight := 0
 	if p.Title != "" {
-		titleWidth, titleH := monitor.MeasureText(monitorID, p.Title, 1)
+		titleWidth, titleH, err := monitor.MeasureText(monitorID, p.Title, 1)
+		if err != nil {
+			return 0, 0, err
+		}
 		titleBarHeight = titleH + 2
 		if titleWidth+4 > minWidth {
 			minWidth = titleWidth + 4
@@ -65,7 +68,10 @@ func (p *Panel) MinSize(monitorID string) (width, height int) {
 	}
 
 	if p.Child != nil {
-		childW, childH := p.Child.MinSize(monitorID)
+		childW, childH, err := p.Child.MinSize(monitorID)
+		if err != nil {
+			return 0, 0, err
+		}
 
 		borderSize := 2
 		if p.BorderStyle == BorderNone {
@@ -82,43 +88,55 @@ func (p *Panel) MinSize(monitorID string) (width, height int) {
 		minHeight = contentHeight
 	}
 
-	return minWidth, minHeight
+	return minWidth, minHeight, nil
 }
 
-func (p *Panel) Render(monitorID string, region Rect) {
-	monitor.FillRect(
+func (p *Panel) Render(monitorID string, region Rect) error {
+	if err := monitor.FillRect(
 		monitorID,
 		region.X, region.Y,
 		region.Width, region.Height,
 		p.Background.R, p.Background.G, p.Background.B,
-	)
+	); err != nil {
+		return err
+	}
 
 	if p.BorderStyle != BorderNone {
-		monitor.DrawRect(
+		if err := monitor.DrawRect(
 			monitorID,
 			region.X, region.Y,
 			region.Width, region.Height,
 			p.BorderColor.R, p.BorderColor.G, p.BorderColor.B,
-		)
+		); err != nil {
+			return err
+		}
 	}
 
 	titleBarHeight := 0
 	if p.Title != "" {
-		_, titleH := monitor.MeasureText(monitorID, p.Title, 1)
+		_, titleH, err := monitor.MeasureText(monitorID, p.Title, 1)
+		if err != nil {
+			return err
+		}
 		titleBarHeight = titleH + 2
 
-		monitor.FillRect(
+		if err := monitor.FillRect(
 			monitorID,
 			region.X+1, region.Y+1,
 			region.Width-2, titleBarHeight,
 			p.TitleBarColor.R, p.TitleBarColor.G, p.TitleBarColor.B,
-		)
+		); err != nil {
+			return err
+		}
 
-		titleWidth, _ := monitor.MeasureText(monitorID, p.Title, 1)
+		titleWidth, _, err := monitor.MeasureText(monitorID, p.Title, 1)
+		if err != nil {
+			return err
+		}
 		titleX := region.X + 1 + (region.Width-2-titleWidth)/2
 		titleY := region.Y + 2
 
-		monitor.DrawText(
+		_, err = monitor.DrawText(
 			monitorID,
 			titleX, titleY,
 			p.Title,
@@ -126,6 +144,9 @@ func (p *Panel) Render(monitorID string, region Rect) {
 			p.TitleBarColor.R, p.TitleBarColor.G, p.TitleBarColor.B,
 			1,
 		)
+		if err != nil {
+			return err
+		}
 	}
 
 	if p.Child != nil {
@@ -142,7 +163,11 @@ func (p *Panel) Render(monitorID string, region Rect) {
 		}
 
 		if childRegion.Width > 0 && childRegion.Height > 0 {
-			p.Child.Render(monitorID, childRegion)
+			if err := p.Child.Render(monitorID, childRegion); err != nil {
+				return err
+			}
 		}
 	}
+
+	return nil
 }

@@ -11,12 +11,26 @@ import (
 func main() {
 	monitorID := "monitor_test"
 
-	peripheral.Connect(monitorID)
-	width, height := monitor.GetSize(monitorID)
+	_, err := peripheral.Connect(monitorID)
+	if err != nil {
+		panic(err)
+	}
 
-	monitor.Clear(monitorID, 0, 0, 0)
+	width, height, err := monitor.GetSize(monitorID)
+	if err != nil {
+		panic(err)
+	}
 
-	_, lineHeight := monitor.MeasureText(monitorID, "A", 1)
+	err = monitor.Clear(monitorID, 0, 0, 0)
+	if err != nil {
+		panic(err)
+	}
+
+	_, lineHeight, err := monitor.MeasureText(monitorID, "A", 1)
+	if err != nil {
+		panic(err)
+	}
+
 	maxLines := (height - 20) / lineHeight
 	logY := 10
 
@@ -52,9 +66,15 @@ func main() {
 	for i, msg := range messages {
 		if currentLine >= maxLines {
 			logAreaHeight := maxLines * lineHeight
-			monitor.CopyRegion(monitorID, 10, logY+lineHeight, width-20, logAreaHeight-lineHeight, 10, logY)
+			err = monitor.CopyRegion(monitorID, 10, logY+lineHeight, width-20, logAreaHeight-lineHeight, 10, logY)
+			if err != nil {
+				panic(err)
+			}
 
-			monitor.FillRect(monitorID, 10, logY+(maxLines-1)*lineHeight, width-20, lineHeight, 0, 0, 0)
+			err = monitor.FillRect(monitorID, 10, logY+(maxLines-1)*lineHeight, width-20, lineHeight, 0, 0, 0)
+			if err != nil {
+				panic(err)
+			}
 
 			currentLine = maxLines - 1
 		}
@@ -70,7 +90,10 @@ func main() {
 			color = [3]int{0, 255, 255}
 		}
 
-		monitor.DrawText(monitorID, 10, y, msg, color[0], color[1], color[2], 0, 0, 0, 1)
+		_, err = monitor.DrawText(monitorID, 10, y, msg, color[0], color[1], color[2], 0, 0, 0, 1)
+		if err != nil {
+			panic(err)
+		}
 
 		fmt.Printf("[%2d/%2d] %s\n", i+1, len(messages), msg)
 		currentLine++

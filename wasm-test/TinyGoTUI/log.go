@@ -119,9 +119,9 @@ func (l *Log) getLevelPrefix(level LogLevel) string {
 	}
 }
 
-func (l *Log) MinSize(monitorID string) (width, height int) {
+func (l *Log) MinSize(monitorID string) (width, height int, err error) {
 	if len(l.Entries) == 0 {
-		return 0, 0
+		return 0, 0, nil
 	}
 
 	maxWidth := 0
@@ -129,14 +129,17 @@ func (l *Log) MinSize(monitorID string) (width, height int) {
 
 	for i, entry := range l.Entries {
 		line := l.formatLine(i, entry)
-		w, h := monitor.MeasureText(monitorID, line, l.Scale)
+		w, h, err := monitor.MeasureText(monitorID, line, l.Scale)
+		if err != nil {
+			return 0, 0, err
+		}
 		if w > maxWidth {
 			maxWidth = w
 		}
 		totalHeight += h
 	}
 
-	return maxWidth, totalHeight
+	return maxWidth, totalHeight, nil
 }
 
 func (l *Log) formatLine(index int, entry LogEntry) string {
@@ -151,16 +154,19 @@ func (l *Log) formatLine(index int, entry LogEntry) string {
 	return line
 }
 
-func (l *Log) Render(monitorID string, region Rect) {
+func (l *Log) Render(monitorID string, region Rect) error {
 	if len(l.Entries) == 0 {
-		return
+		return nil
 	}
 
-	_, lineHeight := monitor.MeasureText(monitorID, "A", l.Scale)
+	_, lineHeight, err := monitor.MeasureText(monitorID, "A", l.Scale)
+	if err != nil {
+		return err
+	}
 
 	maxVisibleLines := region.Height / lineHeight
 	if maxVisibleLines <= 0 {
-		return
+		return nil
 	}
 
 	startIndex := 0
@@ -181,8 +187,11 @@ func (l *Log) Render(monitorID string, region Rect) {
 
 		if l.ShowLineNumbers {
 			lineNum := fmt.Sprintf("%3d ", i+1)
-			numWidth, _ := monitor.MeasureText(monitorID, lineNum, l.Scale)
-			monitor.DrawText(
+			numWidth, _, err := monitor.MeasureText(monitorID, lineNum, l.Scale)
+			if err != nil {
+				return err
+			}
+			_, err = monitor.DrawText(
 				monitorID,
 				x, y,
 				lineNum,
@@ -190,14 +199,20 @@ func (l *Log) Render(monitorID string, region Rect) {
 				0, 0, 0,
 				l.Scale,
 			)
+			if err != nil {
+				return err
+			}
 			x += numWidth
 		}
 
 		prefix := l.getLevelPrefix(entry.Level) + " "
 		levelColor := l.getLevelColor(entry.Level)
-		prefixWidth, _ := monitor.MeasureText(monitorID, prefix, l.Scale)
+		prefixWidth, _, err := monitor.MeasureText(monitorID, prefix, l.Scale)
+		if err != nil {
+			return err
+		}
 
-		monitor.DrawText(
+		_, err = monitor.DrawText(
 			monitorID,
 			x, y,
 			prefix,
@@ -205,9 +220,12 @@ func (l *Log) Render(monitorID string, region Rect) {
 			0, 0, 0,
 			l.Scale,
 		)
+		if err != nil {
+			return err
+		}
 		x += prefixWidth
 
-		monitor.DrawText(
+		_, err = monitor.DrawText(
 			monitorID,
 			x, y,
 			entry.Message,
@@ -215,7 +233,12 @@ func (l *Log) Render(monitorID string, region Rect) {
 			0, 0, 0,
 			l.Scale,
 		)
+		if err != nil {
+			return err
+		}
 
 		y += lineHeight
 	}
+
+	return nil
 }

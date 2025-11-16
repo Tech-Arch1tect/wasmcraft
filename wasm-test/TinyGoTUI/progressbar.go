@@ -42,26 +42,30 @@ func (p *ProgressBar) SetShowText(show bool) {
 	p.ShowText = show
 }
 
-func (p *ProgressBar) MinSize(monitorID string) (width, height int) {
-	return 20, 8
+func (p *ProgressBar) MinSize(monitorID string) (width, height int, err error) {
+	return 20, 8, nil
 }
 
-func (p *ProgressBar) Render(monitorID string, region Rect) {
-	monitor.FillRect(
+func (p *ProgressBar) Render(monitorID string, region Rect) error {
+	if err := monitor.FillRect(
 		monitorID,
 		region.X, region.Y,
 		region.Width, region.Height,
 		p.Background.R, p.Background.G, p.Background.B,
-	)
+	); err != nil {
+		return err
+	}
 
 	filledWidth := int(float64(region.Width) * p.Value)
 	if filledWidth > 0 {
-		monitor.FillRect(
+		if err := monitor.FillRect(
 			monitorID,
 			region.X, region.Y,
 			filledWidth, region.Height,
 			p.Foreground.R, p.Foreground.G, p.Foreground.B,
-		)
+		); err != nil {
+			return err
+		}
 	}
 
 	if p.ShowText {
@@ -77,7 +81,10 @@ func (p *ProgressBar) Render(monitorID string, region Rect) {
 			text = string(rune('0'+tens)) + string(rune('0'+ones)) + "%"
 		}
 
-		textWidth, textHeight := monitor.MeasureText(monitorID, text, 1)
+		textWidth, textHeight, err := monitor.MeasureText(monitorID, text, 1)
+		if err != nil {
+			return err
+		}
 		textX := region.X + (region.Width-textWidth)/2
 		textY := region.Y + (region.Height-textHeight)/2
 
@@ -89,7 +96,7 @@ func (p *ProgressBar) Render(monitorID string, region Rect) {
 			textColor = White
 		}
 
-		monitor.DrawText(
+		_, err = monitor.DrawText(
 			monitorID,
 			textX, textY,
 			text,
@@ -97,5 +104,9 @@ func (p *ProgressBar) Render(monitorID string, region Rect) {
 			0, 0, 0,
 			1,
 		)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }

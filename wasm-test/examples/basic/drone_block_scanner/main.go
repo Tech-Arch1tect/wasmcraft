@@ -22,7 +22,10 @@ func main() {
 	}
 
 	for _, s := range sides {
-		block := world.GetBlock(s.side)
+		block, err := world.GetBlock(s.side)
+		if err != nil {
+			panic(err)
+		}
 		fmt.Printf("%s: %s\n", s.name, block)
 	}
 }

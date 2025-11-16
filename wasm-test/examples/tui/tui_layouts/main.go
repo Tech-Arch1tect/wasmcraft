@@ -11,10 +11,17 @@ import (
 func main() {
 	monitorID := "monitor_test"
 
-	peripheral.Connect(monitorID)
-	width, height := monitor.GetSize(monitorID)
+	if _, err := peripheral.Connect(monitorID); err != nil {
+		panic(err)
+	}
+	width, height, err := monitor.GetSize(monitorID)
+	if err != nil {
+		panic(err)
+	}
 
-	monitor.Clear(monitorID, 16, 16, 16)
+	if err := monitor.Clear(monitorID, 16, 16, 16); err != nil {
+		panic(err)
+	}
 
 	fmt.Println("=== TUI Layouts Example ===\n")
 
@@ -61,12 +68,14 @@ func main() {
 	mainLayout.AddChild(separator)
 	mainLayout.AddChild(tui.NewFlexChild(bottomPanel, 1))
 
-	mainLayout.Render(monitorID, tui.Rect{
+	if err := mainLayout.Render(monitorID, tui.Rect{
 		X:      0,
 		Y:      0,
 		Width:  width,
 		Height: height,
-	})
+	}); err != nil {
+		panic(err)
+	}
 
 	fmt.Println("Layout features demonstrated:")
 	fmt.Println("- HBox: horizontal layout (top row, 3 panels)")

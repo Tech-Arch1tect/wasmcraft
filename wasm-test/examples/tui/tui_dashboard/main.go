@@ -11,13 +11,23 @@ import (
 func main() {
 	monitorID := "monitor_test"
 
-	result := peripheral.Connect(monitorID)
+	result, err := peripheral.Connect(monitorID)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("Connected: %s\n", result)
 
-	monitor.SetResolution(monitorID, 128)
-	monitor.Clear(monitorID, 16, 16, 16)
+	if err := monitor.SetResolution(monitorID, 128); err != nil {
+		panic(err)
+	}
+	if err := monitor.Clear(monitorID, 16, 16, 16); err != nil {
+		panic(err)
+	}
 
-	width, height := monitor.GetSize(monitorID)
+	width, height, err := monitor.GetSize(monitorID)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("\nDashboard Example")
 	fmt.Println("=================")
@@ -109,12 +119,14 @@ func main() {
 	mainLayout.AddChild(tui.NewVSpacer(2))
 	mainLayout.AddChild(separator3)
 
-	mainLayout.Render(monitorID, tui.Rect{
+	if err := mainLayout.Render(monitorID, tui.Rect{
 		X:      2,
 		Y:      2,
 		Width:  width - 4,
 		Height: height - 4,
-	})
+	}); err != nil {
+		panic(err)
+	}
 
 	fmt.Println("\nDashboard rendered!")
 	fmt.Println("Components used:")

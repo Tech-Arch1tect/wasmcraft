@@ -8,33 +8,87 @@ import (
 )
 
 func main() {
-	startPos := movement.GetPosition()
+	startPos, err := movement.GetPosition()
+	if err != nil {
+		panic(err)
+	}
 
 	// North (180°) = -Z
-	movement.SetYaw(180)
-	movement.MoveForward(3.0)
-	movement.SetYaw(0)
-	movement.MoveForward(3.0)
+	err = movement.SetYaw(180)
+	if err != nil {
+		panic(err)
+	}
+	_, err = movement.MoveForward(3.0)
+	if err != nil {
+		panic(err)
+	}
+	err = movement.SetYaw(0)
+	if err != nil {
+		panic(err)
+	}
+	_, err = movement.MoveForward(3.0)
+	if err != nil {
+		panic(err)
+	}
 
 	// East (270°) = +X
-	movement.SetYaw(270)
-	movement.MoveForward(3.0)
-	movement.SetYaw(90)
-	movement.MoveForward(3.0)
+	err = movement.SetYaw(270)
+	if err != nil {
+		panic(err)
+	}
+	_, err = movement.MoveForward(3.0)
+	if err != nil {
+		panic(err)
+	}
+	err = movement.SetYaw(90)
+	if err != nil {
+		panic(err)
+	}
+	_, err = movement.MoveForward(3.0)
+	if err != nil {
+		panic(err)
+	}
 
 	// South (0°) = +Z
-	movement.SetYaw(0)
-	movement.MoveForward(3.0)
-	movement.SetYaw(180)
-	movement.MoveForward(3.0)
+	err = movement.SetYaw(0)
+	if err != nil {
+		panic(err)
+	}
+	_, err = movement.MoveForward(3.0)
+	if err != nil {
+		panic(err)
+	}
+	err = movement.SetYaw(180)
+	if err != nil {
+		panic(err)
+	}
+	_, err = movement.MoveForward(3.0)
+	if err != nil {
+		panic(err)
+	}
 
 	// West (90°) = -X
-	movement.SetYaw(90)
-	movement.MoveForward(3.0)
-	movement.SetYaw(270)
-	movement.MoveForward(3.0)
+	err = movement.SetYaw(90)
+	if err != nil {
+		panic(err)
+	}
+	_, err = movement.MoveForward(3.0)
+	if err != nil {
+		panic(err)
+	}
+	err = movement.SetYaw(270)
+	if err != nil {
+		panic(err)
+	}
+	_, err = movement.MoveForward(3.0)
+	if err != nil {
+		panic(err)
+	}
 
-	endPos := movement.GetPosition()
+	endPos, err := movement.GetPosition()
+	if err != nil {
+		panic(err)
+	}
 	drift := math.Sqrt(
 		math.Pow(endPos.X-startPos.X, 2) +
 			math.Pow(endPos.Y-startPos.Y, 2) +

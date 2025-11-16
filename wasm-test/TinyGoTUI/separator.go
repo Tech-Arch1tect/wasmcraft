@@ -42,31 +42,36 @@ func (s *Separator) SetThickness(thickness int) {
 	s.Thickness = thickness
 }
 
-func (s *Separator) MinSize(monitorID string) (width, height int) {
+func (s *Separator) MinSize(monitorID string) (width, height int, err error) {
 	if s.Orientation == Horizontal {
-		return 1, s.Thickness
+		return 1, s.Thickness, nil
 	}
-	return s.Thickness, 1
+	return s.Thickness, 1, nil
 }
 
-func (s *Separator) Render(monitorID string, region Rect) {
+func (s *Separator) Render(monitorID string, region Rect) error {
 	if s.Orientation == Horizontal {
 		for i := 0; i < s.Thickness && i < region.Height; i++ {
-			monitor.DrawHLine(
+			if err := monitor.DrawHLine(
 				monitorID,
 				region.X, region.Y+i,
 				region.Width,
 				s.Color.R, s.Color.G, s.Color.B,
-			)
+			); err != nil {
+				return err
+			}
 		}
 	} else {
 		for i := 0; i < s.Thickness && i < region.Width; i++ {
-			monitor.DrawVLine(
+			if err := monitor.DrawVLine(
 				monitorID,
 				region.X+i, region.Y,
 				region.Height,
 				s.Color.R, s.Color.G, s.Color.B,
-			)
+			); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }

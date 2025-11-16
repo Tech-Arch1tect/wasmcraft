@@ -28,11 +28,17 @@ func main() {
 		fmt.Printf("=== %s ===\n", s.name)
 
 		// Get block ID
-		blockID := world.GetBlock(s.side)
+		blockID, err := world.GetBlock(s.side)
+		if err != nil {
+			panic(err)
+		}
 		fmt.Printf("Block: %s\n", blockID)
 
 		// Get all properties
-		props := world.GetBlockProperties(s.side)
+		props, err := world.GetBlockProperties(s.side)
+		if err != nil {
+			panic(err)
+		}
 
 		if len(props) == 0 {
 			fmt.Println("No properties")

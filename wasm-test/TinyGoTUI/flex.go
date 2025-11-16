@@ -12,13 +12,13 @@ func NewFlexChild(child Component, flex int) *FlexChild {
 	}
 }
 
-func (f *FlexChild) MinSize(monitorID string) (width, height int) {
+func (f *FlexChild) MinSize(monitorID string) (width, height int, err error) {
 	if f.Flex > 0 {
-		return 0, 0
+		return 0, 0, nil
 	}
 	return f.Child.MinSize(monitorID)
 }
 
-func (f *FlexChild) Render(monitorID string, region Rect) {
-	f.Child.Render(monitorID, region)
+func (f *FlexChild) Render(monitorID string, region Rect) error {
+	return f.Child.Render(monitorID, region)
 }

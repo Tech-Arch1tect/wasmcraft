@@ -41,19 +41,25 @@ func (b *Box) SetPadding(padding int) {
 	b.Padding = padding
 }
 
-func (b *Box) MinSize(monitorID string) (width, height int) {
+func (b *Box) MinSize(monitorID string) (width, height int, err error) {
 	minWidth := 2
 	minHeight := 2
 
 	titleHeight := 0
 	if b.Title != "" {
-		titleWidth, titleH := monitor.MeasureText(monitorID, b.Title, b.TitleStyle.Scale)
+		titleWidth, titleH, err := monitor.MeasureText(monitorID, b.Title, b.TitleStyle.Scale)
+		if err != nil {
+			return 0, 0, err
+		}
 		titleHeight = titleH
 		minWidth = titleWidth + 4
 	}
 
 	if b.Child != nil {
-		childW, childH := b.Child.MinSize(monitorID)
+		childW, childH, err := b.Child.MinSize(monitorID)
+		if err != nil {
+			return 0, 0, err
+		}
 
 		borderSize := 2
 		if b.BorderStyle == BorderNone {
@@ -74,38 +80,47 @@ func (b *Box) MinSize(monitorID string) (width, height int) {
 		minHeight = contentHeight
 	}
 
-	return minWidth, minHeight
+	return minWidth, minHeight, nil
 }
 
-func (b *Box) Render(monitorID string, region Rect) {
-	monitor.FillRect(
+func (b *Box) Render(monitorID string, region Rect) error {
+	if err := monitor.FillRect(
 		monitorID,
 		region.X, region.Y,
 		region.Width, region.Height,
 		b.Background.R, b.Background.G, b.Background.B,
-	)
+	); err != nil {
+		return err
+	}
 
 	if b.BorderStyle != BorderNone {
-		monitor.DrawRect(
+		if err := monitor.DrawRect(
 			monitorID,
 			region.X, region.Y,
 			region.Width, region.Height,
 			b.BorderColor.R, b.BorderColor.G, b.BorderColor.B,
-		)
+		); err != nil {
+			return err
+		}
 
 		if b.Title != "" {
-			titleWidth, titleHeight := monitor.MeasureText(monitorID, b.Title, b.TitleStyle.Scale)
+			titleWidth, titleHeight, err := monitor.MeasureText(monitorID, b.Title, b.TitleStyle.Scale)
+			if err != nil {
+				return err
+			}
 			titleX := region.X + (region.Width-titleWidth)/2
 			titleY := region.Y + 1
 
-			monitor.FillRect(
+			if err := monitor.FillRect(
 				monitorID,
 				titleX-1, titleY,
 				titleWidth+2, titleHeight,
 				b.Background.R, b.Background.G, b.Background.B,
-			)
+			); err != nil {
+				return err
+			}
 
-			monitor.DrawText(
+			_, err = monitor.DrawText(
 				monitorID,
 				titleX, titleY,
 				b.Title,
@@ -113,6 +128,9 @@ func (b *Box) Render(monitorID string, region Rect) {
 				b.Background.R, b.Background.G, b.Background.B,
 				b.TitleStyle.Scale,
 			)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -124,7 +142,10 @@ func (b *Box) Render(monitorID string, region Rect) {
 
 		titleOffset := 0
 		if b.Title != "" {
-			_, titleHeight := monitor.MeasureText(monitorID, b.Title, b.TitleStyle.Scale)
+			_, titleHeight, err := monitor.MeasureText(monitorID, b.Title, b.TitleStyle.Scale)
+			if err != nil {
+				return err
+			}
 			titleOffset = titleHeight + 1
 		}
 
@@ -136,7 +157,11 @@ func (b *Box) Render(monitorID string, region Rect) {
 		}
 
 		if childRegion.Width > 0 && childRegion.Height > 0 {
-			b.Child.Render(monitorID, childRegion)
+			if err := b.Child.Render(monitorID, childRegion); err != nil {
+				return err
+			}
 		}
 	}
+
+	return nil
 }

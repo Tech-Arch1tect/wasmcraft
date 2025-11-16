@@ -8,23 +8,43 @@ import (
 )
 
 func main() {
-	startPos := movement.GetPosition()
+	startPos, err := movement.GetPosition()
+	if err != nil {
+		panic(err)
+	}
 	squareSize := float32(5.0)
 	numLaps := 3
 
 	for lap := 1; lap <= numLaps; lap++ {
-		lapStartPos := movement.GetPosition()
-
-		for side := 1; side <= 4; side++ {
-			movement.MoveForward(squareSize)
-			movement.Rotate(90)
+		lapStartPos, err := movement.GetPosition()
+		if err != nil {
+			panic(err)
 		}
 
-		drift := calculateDistance(lapStartPos, movement.GetPosition())
+		for side := 1; side <= 4; side++ {
+			_, err = movement.MoveForward(squareSize)
+			if err != nil {
+				panic(err)
+			}
+			_, err = movement.Rotate(90)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		currentPos, err := movement.GetPosition()
+		if err != nil {
+			panic(err)
+		}
+		drift := calculateDistance(lapStartPos, currentPos)
 		fmt.Printf("Lap %d: drift %.6f\n", lap, drift)
 	}
 
-	totalDrift := calculateDistance(startPos, movement.GetPosition())
+	finalPos, err := movement.GetPosition()
+	if err != nil {
+		panic(err)
+	}
+	totalDrift := calculateDistance(startPos, finalPos)
 	fmt.Printf("Total drift: %.6f blocks\n", totalDrift)
 }
 

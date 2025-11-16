@@ -20,9 +20,9 @@ func (v *VBox) SetSpacing(spacing int) {
 	v.Spacing = spacing
 }
 
-func (v *VBox) MinSize(monitorID string) (width, height int) {
+func (v *VBox) MinSize(monitorID string) (width, height int, err error) {
 	if len(v.Children) == 0 {
-		return 0, 0
+		return 0, 0, nil
 	}
 
 	maxWidth := 0
@@ -30,7 +30,10 @@ func (v *VBox) MinSize(monitorID string) (width, height int) {
 	hasFlexChildren := false
 
 	for i, child := range v.Children {
-		w, h := child.MinSize(monitorID)
+		w, h, err := child.MinSize(monitorID)
+		if err != nil {
+			return 0, 0, err
+		}
 
 		if _, ok := child.(*FlexChild); ok {
 			hasFlexChildren = true
@@ -46,15 +49,15 @@ func (v *VBox) MinSize(monitorID string) (width, height int) {
 	}
 
 	if hasFlexChildren {
-		return maxWidth, 0
+		return maxWidth, 0, nil
 	}
 
-	return maxWidth, totalHeight
+	return maxWidth, totalHeight, nil
 }
 
-func (v *VBox) Render(monitorID string, region Rect) {
+func (v *VBox) Render(monitorID string, region Rect) error {
 	if len(v.Children) == 0 {
-		return
+		return nil
 	}
 
 	totalMinHeight := 0
@@ -62,7 +65,10 @@ func (v *VBox) Render(monitorID string, region Rect) {
 	childSizes := make([]struct{ w, h, flex int }, len(v.Children))
 
 	for i, child := range v.Children {
-		w, h := child.MinSize(monitorID)
+		w, h, err := child.MinSize(monitorID)
+		if err != nil {
+			return err
+		}
 		childSizes[i].w = w
 		childSizes[i].h = h
 		childSizes[i].flex = 0
@@ -106,7 +112,11 @@ func (v *VBox) Render(monitorID string, region Rect) {
 			Height: h,
 		}
 
-		child.Render(monitorID, childRegion)
+		if err := child.Render(monitorID, childRegion); err != nil {
+			return err
+		}
 		y += h + v.Spacing
 	}
+
+	return nil
 }

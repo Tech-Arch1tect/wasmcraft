@@ -38,16 +38,19 @@ func (t *Text) SetAlign(align Alignment) {
 	t.Align = align
 }
 
-func (t *Text) MinSize(monitorID string) (width, height int) {
+func (t *Text) MinSize(monitorID string) (width, height int, err error) {
 	return monitor.MeasureText(monitorID, t.Content, t.Style.Scale)
 }
 
-func (t *Text) Render(monitorID string, region Rect) {
+func (t *Text) Render(monitorID string, region Rect) error {
 	if t.Content == "" {
-		return
+		return nil
 	}
 
-	textWidth, textHeight := monitor.MeasureText(monitorID, t.Content, t.Style.Scale)
+	textWidth, textHeight, err := monitor.MeasureText(monitorID, t.Content, t.Style.Scale)
+	if err != nil {
+		return err
+	}
 
 	var x int
 	switch t.Align {
@@ -62,15 +65,17 @@ func (t *Text) Render(monitorID string, region Rect) {
 	y := region.Y + (region.Height-textHeight)/2
 
 	if t.Style.Background != Black {
-		monitor.FillRect(
+		if err := monitor.FillRect(
 			monitorID,
 			x, y,
 			textWidth, textHeight,
 			t.Style.Background.R, t.Style.Background.G, t.Style.Background.B,
-		)
+		); err != nil {
+			return err
+		}
 	}
 
-	monitor.DrawText(
+	_, err = monitor.DrawText(
 		monitorID,
 		x, y,
 		t.Content,
@@ -78,4 +83,9 @@ func (t *Text) Render(monitorID string, region Rect) {
 		0, 0, 0,
 		t.Style.Scale,
 	)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

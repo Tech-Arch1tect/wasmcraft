@@ -12,12 +12,18 @@ func main() {
 	fmt.Println("Analyzing block in front...")
 	fmt.Println()
 
-	blockID := world.GetBlock(world.FRONT)
+	blockID, err := world.GetBlock(world.FRONT)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("Block ID: %s\n", blockID)
 	fmt.Println()
 
 	// Get all tags
-	tags := world.GetBlockTags(world.FRONT)
+	tags, err := world.GetBlockTags(world.FRONT)
+	if err != nil {
+		panic(err)
+	}
 
 	if len(tags) == 0 {
 		fmt.Println("Block has no tags")

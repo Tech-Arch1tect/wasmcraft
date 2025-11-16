@@ -10,7 +10,10 @@ func main() {
 	fmt.Println("=== Drone Mining Example ===")
 	fmt.Println()
 
-	blockInFront := world.GetBlock(world.FRONT)
+	blockInFront, err := world.GetBlock(world.FRONT)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("Block in front: %s\n", blockInFront)
 
 	if blockInFront == "minecraft:air" {
@@ -20,7 +23,10 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("=== Checking Tool Compatibility ===")
-	canBreak := world.CanBreak(world.FRONT)
+	canBreak, err := world.CanBreak(world.FRONT)
+	if err != nil {
+		panic(err)
+	}
 
 	if !canBreak {
 		fmt.Println("ERROR: Cannot break this block with current tool/hand!")
@@ -33,11 +39,17 @@ func main() {
 	fmt.Println("=== Breaking Block ===")
 	fmt.Printf("Mining: %s\n", blockInFront)
 
-	world.BreakBlock(world.FRONT)
+	err = world.BreakBlock(world.FRONT)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("SUCCESS! Block broken")
 
-	blockAfter := world.GetBlock(world.FRONT)
+	blockAfter, err := world.GetBlock(world.FRONT)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("Block in front now: %s\n", blockAfter)
 
 	fmt.Println("=== Mining Complete ===")

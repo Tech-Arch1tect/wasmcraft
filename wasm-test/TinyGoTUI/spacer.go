@@ -26,9 +26,10 @@ func NewVSpacer(height int) *Spacer {
 	}
 }
 
-func (s *Spacer) MinSize(monitorID string) (width, height int) {
-	return s.Width, s.Height
+func (s *Spacer) MinSize(monitorID string) (width, height int, err error) {
+	return s.Width, s.Height, nil
 }
 
-func (s *Spacer) Render(monitorID string, region Rect) {
+func (s *Spacer) Render(monitorID string, region Rect) error {
+	return nil
 }

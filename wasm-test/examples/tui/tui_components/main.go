@@ -11,10 +11,17 @@ import (
 func main() {
 	monitorID := "monitor_test"
 
-	peripheral.Connect(monitorID)
-	width, height := monitor.GetSize(monitorID)
+	if _, err := peripheral.Connect(monitorID); err != nil {
+		panic(err)
+	}
+	width, height, err := monitor.GetSize(monitorID)
+	if err != nil {
+		panic(err)
+	}
 
-	monitor.Clear(monitorID, 16, 16, 16)
+	if err := monitor.Clear(monitorID, 16, 16, 16); err != nil {
+		panic(err)
+	}
 
 	fmt.Println("=== TUI Components Example ===\n")
 
@@ -64,12 +71,14 @@ func main() {
 	layout.AddChild(logPanel)
 	layout.AddChild(healthPanel)
 
-	layout.Render(monitorID, tui.Rect{
+	if err := layout.Render(monitorID, tui.Rect{
 		X:      10,
 		Y:      10,
 		Width:  width - 20,
 		Height: height - 20,
-	})
+	}); err != nil {
+		panic(err)
+	}
 
 	fmt.Println("Components demonstrated:")
 	fmt.Println("- List: bullet style with colored items")

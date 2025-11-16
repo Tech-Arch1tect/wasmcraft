@@ -45,16 +45,19 @@ func monitorMeasureText(idPtr, idLen, textPtr, textLen, scale uint32) uint32
 //go:wasmimport env monitor_copy_region
 func monitorCopyRegion(idPtr, idLen, srcX, srcY, width, height, dstX, dstY uint32) uint32
 
-func SetPixel(monitorID string, x, y, r, g, b int) {
+func SetPixel(monitorID string, x, y, r, g, b int) error {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
 
 	errorCode := monitorSetPixel(idPtr, idLen, uint32(x), uint32(y), uint32(r), uint32(g), uint32(b))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return err
+	}
+	return nil
 }
 
-func GetPixel(monitorID string, x, y int) (r, g, b int) {
+func GetPixel(monitorID string, x, y int) (r, g, b int, err error) {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
@@ -66,20 +69,25 @@ func GetPixel(monitorID string, x, y int) (r, g, b int) {
 	gVal := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 8)))
 	bVal := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 12)))
 
-	errors.Check(int(errorCode))
-	return int(rVal), int(gVal), int(bVal)
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return 0, 0, 0, err
+	}
+	return int(rVal), int(gVal), int(bVal), nil
 }
 
-func Clear(monitorID string, r, g, b int) {
+func Clear(monitorID string, r, g, b int) error {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
 
 	errorCode := monitorClear(idPtr, idLen, uint32(r), uint32(g), uint32(b))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return err
+	}
+	return nil
 }
 
-func GetSize(monitorID string) (width, height int) {
+func GetSize(monitorID string) (width, height int, err error) {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
@@ -90,65 +98,85 @@ func GetSize(monitorID string) (width, height int) {
 	widthVal := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 4)))
 	heightVal := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 8)))
 
-	errors.Check(int(errorCode))
-	return int(widthVal), int(heightVal)
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return 0, 0, err
+	}
+	return int(widthVal), int(heightVal), nil
 }
 
-func SetResolution(monitorID string, resolution int) {
+func SetResolution(monitorID string, resolution int) error {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
 
 	errorCode := monitorSetResolution(idPtr, idLen, uint32(resolution), uint32(resolution))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return err
+	}
+	return nil
 }
 
-func FillRect(monitorID string, x, y, width, height, r, g, b int) {
+func FillRect(monitorID string, x, y, width, height, r, g, b int) error {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
 
 	errorCode := monitorFillRect(idPtr, idLen, uint32(x), uint32(y), uint32(width), uint32(height), uint32(r), uint32(g), uint32(b))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return err
+	}
+	return nil
 }
 
-func DrawHLine(monitorID string, x, y, length, r, g, b int) {
+func DrawHLine(monitorID string, x, y, length, r, g, b int) error {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
 
 	errorCode := monitorDrawHLine(idPtr, idLen, uint32(x), uint32(y), uint32(length), uint32(r), uint32(g), uint32(b))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return err
+	}
+	return nil
 }
 
-func DrawVLine(monitorID string, x, y, length, r, g, b int) {
+func DrawVLine(monitorID string, x, y, length, r, g, b int) error {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
 
 	errorCode := monitorDrawVLine(idPtr, idLen, uint32(x), uint32(y), uint32(length), uint32(r), uint32(g), uint32(b))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return err
+	}
+	return nil
 }
 
-func DrawRect(monitorID string, x, y, width, height, r, g, b int) {
+func DrawRect(monitorID string, x, y, width, height, r, g, b int) error {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
 
 	errorCode := monitorDrawRect(idPtr, idLen, uint32(x), uint32(y), uint32(width), uint32(height), uint32(r), uint32(g), uint32(b))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return err
+	}
+	return nil
 }
 
-func DrawChar(monitorID string, x, y int, c rune, fgR, fgG, fgB, bgR, bgG, bgB, scale int) {
+func DrawChar(monitorID string, x, y int, c rune, fgR, fgG, fgB, bgR, bgG, bgB, scale int) error {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
 
 	errorCode := monitorDrawChar(idPtr, idLen, uint32(x), uint32(y), uint32(c), uint32(fgR), uint32(fgG), uint32(fgB), uint32(bgR), uint32(bgG), uint32(bgB), uint32(scale))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return err
+	}
+	return nil
 }
 
-func DrawText(monitorID string, x, y int, text string, fgR, fgG, fgB, bgR, bgG, bgB, scale int) int {
+func DrawText(monitorID string, x, y int, text string, fgR, fgG, fgB, bgR, bgG, bgB, scale int) (int, error) {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
@@ -162,11 +190,13 @@ func DrawText(monitorID string, x, y int, text string, fgR, fgG, fgB, bgR, bgG, 
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	width := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 4)))
 
-	errors.Check(int(errorCode))
-	return int(width)
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return 0, err
+	}
+	return int(width), nil
 }
 
-func MeasureText(monitorID string, text string, scale int) (width, height int) {
+func MeasureText(monitorID string, text string, scale int) (width, height int, err error) {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
@@ -181,17 +211,22 @@ func MeasureText(monitorID string, text string, scale int) (width, height int) {
 	widthVal := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 4)))
 	heightVal := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 8)))
 
-	errors.Check(int(errorCode))
-	return int(widthVal), int(heightVal)
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return 0, 0, err
+	}
+	return int(widthVal), int(heightVal), nil
 }
 
-func CopyRegion(monitorID string, srcX, srcY, width, height, dstX, dstY int) {
+func CopyRegion(monitorID string, srcX, srcY, width, height, dstX, dstY int) error {
 	idBytes := []byte(monitorID)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
 
 	errorCode := monitorCopyRegion(idPtr, idLen, uint32(srcX), uint32(srcY), uint32(width), uint32(height), uint32(dstX), uint32(dstY))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return err
+	}
+	return nil
 }
 
 type Color struct {

@@ -11,10 +11,19 @@ import (
 func main() {
 	monitorID := "monitor_test"
 
-	peripheral.Connect(monitorID)
-	width, height := monitor.GetSize(monitorID)
+	_, err := peripheral.Connect(monitorID)
+	if err != nil {
+		panic(err)
+	}
+	width, height, err := monitor.GetSize(monitorID)
+	if err != nil {
+		panic(err)
+	}
 
-	monitor.Clear(monitorID, 20, 20, 20)
+	err = monitor.Clear(monitorID, 20, 20, 20)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("=== Monitor Drawing Primitives ===\n")
 
@@ -25,36 +34,78 @@ func main() {
 		r := rand.Intn(256)
 		g := rand.Intn(256)
 		b := rand.Intn(256)
-		monitor.SetPixel(monitorID, x, y, r, g, b)
+		err = monitor.SetPixel(monitorID, x, y, r, g, b)
+		if err != nil {
+			panic(err)
+		}
 	}
-	testR, testG, testB := monitor.GetPixel(monitorID, 15, 15)
+	testR, testG, testB, err := monitor.GetPixel(monitorID, 15, 15)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("   Pixel at (15,15): RGB(%d, %d, %d)\n", testR, testG, testB)
 
 	fmt.Println("\n2. FillRect")
-	monitor.FillRect(monitorID, width/4+10, 10, 80, 40, 100, 0, 0)
+	err = monitor.FillRect(monitorID, width/4+10, 10, 80, 40, 100, 0, 0)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("\n3. DrawRect (outline)")
-	monitor.DrawRect(monitorID, width/4+15, 15, 70, 30, 255, 0, 0)
+	err = monitor.DrawRect(monitorID, width/4+15, 15, 70, 30, 255, 0, 0)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("\n4. DrawHLine / DrawVLine")
-	monitor.DrawHLine(monitorID, 10, height/2, width/2-20, 0, 255, 0)
-	monitor.DrawVLine(monitorID, width/2, 10, height/2, 0, 0, 255)
+	err = monitor.DrawHLine(monitorID, 10, height/2, width/2-20, 0, 255, 0)
+	if err != nil {
+		panic(err)
+	}
+	err = monitor.DrawVLine(monitorID, width/2, 10, height/2, 0, 0, 255)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("\n5. DrawChar")
-	monitor.DrawChar(monitorID, 10, height/2+20, 'A', 255, 255, 0, 0, 0, 0, 3)
-	monitor.DrawChar(monitorID, 34, height/2+20, 'B', 0, 255, 255, 0, 0, 0, 3)
-	monitor.DrawChar(monitorID, 58, height/2+20, 'C', 255, 0, 255, 0, 0, 0, 3)
+	err = monitor.DrawChar(monitorID, 10, height/2+20, 'A', 255, 255, 0, 0, 0, 0, 3)
+	if err != nil {
+		panic(err)
+	}
+	err = monitor.DrawChar(monitorID, 34, height/2+20, 'B', 0, 255, 255, 0, 0, 0, 3)
+	if err != nil {
+		panic(err)
+	}
+	err = monitor.DrawChar(monitorID, 58, height/2+20, 'C', 255, 0, 255, 0, 0, 0, 3)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("\n6. DrawText / MeasureText")
 	text := "Hello!"
-	textW, textH := monitor.MeasureText(monitorID, text, 2)
+	textW, textH, err := monitor.MeasureText(monitorID, text, 2)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("   Text '%s' size: %dx%d\n", text, textW, textH)
-	monitor.DrawText(monitorID, width/2+10, height/2+20, text, 255, 255, 255, 50, 50, 50, 2)
+	_, err = monitor.DrawText(monitorID, width/2+10, height/2+20, text, 255, 255, 255, 50, 50, 50, 2)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("\n7. CopyRegion")
-	monitor.FillRect(monitorID, width/2+10, height-60, 50, 40, 200, 100, 0)
-	monitor.DrawText(monitorID, width/2+15, height-50, "Copy", 255, 255, 255, 0, 0, 0, 1)
-	monitor.CopyRegion(monitorID, width/2+10, height-60, 50, 40, width/2+70, height-60)
+	err = monitor.FillRect(monitorID, width/2+10, height-60, 50, 40, 200, 100, 0)
+	if err != nil {
+		panic(err)
+	}
+	_, err = monitor.DrawText(monitorID, width/2+15, height-50, "Copy", 255, 255, 255, 0, 0, 0, 1)
+	if err != nil {
+		panic(err)
+	}
+	err = monitor.CopyRegion(monitorID, width/2+10, height-60, 50, 40, width/2+70, height-60)
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println("\nAll drawing primitives demonstrated!")
 }

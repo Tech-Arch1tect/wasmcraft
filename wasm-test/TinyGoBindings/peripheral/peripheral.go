@@ -15,22 +15,24 @@ func peripheralConnect(labelPtr, labelLen uint32) uint32
 //go:wasmimport env peripheral_disconnect
 func peripheralDisconnect(idPtr, idLen uint32) uint32
 
-func List() string {
+func List() (string, error) {
 	buf := make([]byte, 4096)
 	resultPtr := peripheralList(uint32(uintptr(unsafe.Pointer(&buf[0]))))
 
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	length := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 4)))
 
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return "", err
+	}
 
 	if length > 4096 {
 		length = 4096
 	}
-	return string(buf[:length])
+	return string(buf[:length]), nil
 }
 
-func Connect(label string) string {
+func Connect(label string) (string, error) {
 	labelBytes := []byte(label)
 	labelPtr := uint32(uintptr(unsafe.Pointer(&labelBytes[0])))
 	labelLen := uint32(len(labelBytes))
@@ -38,7 +40,9 @@ func Connect(label string) string {
 	resultPtr := peripheralConnect(labelPtr, labelLen)
 
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return "", err
+	}
 
 	var resultBytes []byte
 	for i := 0; i < 4096; i++ {
@@ -49,14 +53,17 @@ func Connect(label string) string {
 		resultBytes = append(resultBytes, b)
 	}
 
-	return string(resultBytes)
+	return string(resultBytes), nil
 }
 
-func Disconnect(id string) {
+func Disconnect(id string) error {
 	idBytes := []byte(id)
 	idPtr := uint32(uintptr(unsafe.Pointer(&idBytes[0])))
 	idLen := uint32(len(idBytes))
 
 	errorCode := peripheralDisconnect(idPtr, idLen)
-	errors.Check(int(errorCode))
+	if err := errors.NewError(int(errorCode)); err != nil {
+		return err
+	}
+	return nil
 }
