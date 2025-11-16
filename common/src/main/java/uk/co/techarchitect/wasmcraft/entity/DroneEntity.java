@@ -15,6 +15,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import uk.co.techarchitect.wasmcraft.computer.ComputerEntityBase;
 import uk.co.techarchitect.wasmcraft.computer.command.builtin.*;
+import uk.co.techarchitect.wasmcraft.menu.InventoryProvider;
 import uk.co.techarchitect.wasmcraft.wasm.WasmContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.ContextHelper;
 import uk.co.techarchitect.wasmcraft.wasm.context.MonitorContext;
@@ -26,7 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class DroneEntity extends ComputerEntityBase implements MovementContext {
+public class DroneEntity extends ComputerEntityBase implements MovementContext, InventoryProvider {
     private static final int INVENTORY_SIZE = 27;
     private static final double PERIPHERAL_RANGE = 16.0;
     private static final EntityDataAccessor<Float> HOVER_HEIGHT = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
@@ -164,8 +165,14 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext {
         };
     }
 
+    @Override
     public SimpleContainer getInventory() {
         return inventory;
+    }
+
+    @Override
+    public int getInventorySize() {
+        return INVENTORY_SIZE;
     }
 
     @Override
