@@ -23,6 +23,7 @@ import uk.co.techarchitect.wasmcraft.wasm.context.MonitorContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.MovementContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.PeripheralContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.RedstoneContext;
+import uk.co.techarchitect.wasmcraft.wasm.context.WorldInteractionContext;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,7 +31,7 @@ import java.util.UUID;
 
 import static uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.*;
 
-public class DroneEntity extends ComputerEntityBase implements MovementContext, InventoryProvider, InventoryContext {
+public class DroneEntity extends ComputerEntityBase implements MovementContext, InventoryProvider, InventoryContext, WorldInteractionContext {
     private static final int INVENTORY_SIZE = 27;
     private static final double PERIPHERAL_RANGE = 16.0;
     private static final EntityDataAccessor<Float> HOVER_HEIGHT = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
@@ -133,11 +134,13 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
     public com.dylibso.chicory.runtime.HostFunction[] toHostFunctions() {
         com.dylibso.chicory.runtime.HostFunction[] movement = MovementContext.super.toHostFunctions();
         com.dylibso.chicory.runtime.HostFunction[] inventory = InventoryContext.super.toHostFunctions();
+        com.dylibso.chicory.runtime.HostFunction[] worldInteraction = WorldInteractionContext.super.toHostFunctions();
 
         com.dylibso.chicory.runtime.HostFunction[] combined = new com.dylibso.chicory.runtime.HostFunction[
-            movement.length + inventory.length];
+            movement.length + inventory.length + worldInteraction.length];
         System.arraycopy(movement, 0, combined, 0, movement.length);
         System.arraycopy(inventory, 0, combined, movement.length, inventory.length);
+        System.arraycopy(worldInteraction, 0, combined, movement.length + inventory.length, worldInteraction.length);
 
         return combined;
     }
@@ -467,6 +470,111 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
         synchronized (movementLock) {
             movementLock.notifyAll();
         }
+    }
+
+    @Override
+    public int canBreak(int relativeSide, int[] outCanBreak) {
+        outCanBreak[0] = 0;
+
+        if (relativeSide < 0 || relativeSide > 2) {
+            return ERR_WORLD_INVALID_SIDE;
+        }
+
+        net.minecraft.server.level.ServerLevel serverLevel = level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
+        if (serverLevel == null || serverLevel.isClientSide) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos entityPos = blockPosition();
+        Direction absoluteDir = getAbsoluteDirectionFromRelative(relativeSide);
+        BlockPos targetPos = entityPos.relative(absoluteDir);
+
+        int selectedSlot = getSelectedSlot();
+        net.minecraft.world.item.ItemStack toolStack = inventory.getItem(selectedSlot);
+
+        net.minecraft.world.level.block.state.BlockState blockState = serverLevel.getBlockState(targetPos);
+        if (blockState.isAir()) {
+            outCanBreak[0] = 1;
+            return SUCCESS;
+        }
+
+        if (blockState.getDestroySpeed(serverLevel, targetPos) < 0) {
+            outCanBreak[0] = 0;
+            return SUCCESS;
+        }
+
+        if (blockState.requiresCorrectToolForDrops()) {
+            net.minecraft.world.item.component.Tool tool = toolStack.get(net.minecraft.core.component.DataComponents.TOOL);
+            if (tool == null || !tool.isCorrectForDrops(blockState)) {
+                outCanBreak[0] = 0;
+                return SUCCESS;
+            }
+        }
+
+        outCanBreak[0] = 1;
+        return SUCCESS;
+    }
+
+    @Override
+    public int breakBlock(int relativeSide) {
+        if (relativeSide < 0 || relativeSide > 2) {
+            return ERR_WORLD_INVALID_SIDE;
+        }
+
+        net.minecraft.server.level.ServerLevel serverLevel = level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
+        if (serverLevel == null || serverLevel.isClientSide) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos entityPos = blockPosition();
+        Direction absoluteDir = getAbsoluteDirectionFromRelative(relativeSide);
+        BlockPos targetPos = entityPos.relative(absoluteDir);
+
+        int selectedSlot = getSelectedSlot();
+        net.minecraft.world.item.ItemStack toolStack = inventory.getItem(selectedSlot);
+
+        net.minecraft.world.level.block.state.BlockState blockState = serverLevel.getBlockState(targetPos);
+        if (blockState.isAir()) {
+            return SUCCESS;
+        }
+
+        if (blockState.getDestroySpeed(serverLevel, targetPos) < 0) {
+            return ERR_WORLD_UNBREAKABLE;
+        }
+
+        if (blockState.requiresCorrectToolForDrops()) {
+            net.minecraft.world.item.component.Tool tool = toolStack.get(net.minecraft.core.component.DataComponents.TOOL);
+            if (tool == null || !tool.isCorrectForDrops(blockState)) {
+                return ERR_WORLD_WRONG_TOOL;
+            }
+        }
+
+        boolean broken = serverLevel.destroyBlock(targetPos, true, this);
+        if (!broken) {
+            return ERR_WORLD_PROTECTED;
+        }
+
+        if (!toolStack.isEmpty()) {
+            toolStack.hurtAndBreak(1, serverLevel, null,
+                item -> inventory.setItem(selectedSlot, net.minecraft.world.item.ItemStack.EMPTY));
+        }
+
+        return SUCCESS;
+    }
+
+    private Direction getAbsoluteDirectionFromRelative(int relativeSide) {
+        float yaw = getYRot();
+        Direction facing = Direction.fromYRot(yaw);
+
+        return switch (relativeSide) {
+            case 0 -> Direction.DOWN;
+            case 1 -> Direction.UP;
+            case 2 -> facing;
+            case 3 -> facing.getOpposite();
+            case 4 -> facing.getCounterClockWise();
+            case 5 -> facing.getClockWise();
+            default -> Direction.NORTH;
+        };
     }
 
 }

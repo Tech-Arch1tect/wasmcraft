@@ -29,4 +29,7 @@ public class WasmMemoryMap {
     public static final int MONITOR_RESULT_PTR = 59392;
 
     public static final int PERIPHERAL_RESULT_PTR = 65536;
+
+    public static final int WORLD_INTERACTION_RESULT_PTR = 66560;
+    public static final int WORLD_INTERACTION_RESULT_SIZE = 8;
 }

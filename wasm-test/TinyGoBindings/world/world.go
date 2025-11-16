@@ -32,6 +32,12 @@ func getBlockTagsRaw(side int32) uint32
 //go:wasmimport env world_get_block_properties
 func getBlockPropertiesRaw(side int32) uint32
 
+//go:wasmimport env world_can_break
+func canBreakRaw(side int32) uint32
+
+//go:wasmimport env world_break_block
+func breakBlockRaw(side int32) uint32
+
 func GetBlock(side int) string {
 	resultPtr := getBlockRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
@@ -129,4 +135,19 @@ func GetBlockProperties(side int) map[string]string {
 	}
 
 	return properties
+}
+
+func CanBreak(side int) bool {
+	resultPtr := canBreakRaw(int32(side))
+	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
+	errors.Check(int(errorCode))
+
+	canBreak := *(*int32)(unsafe.Pointer(uintptr(resultPtr + 4)))
+	return canBreak != 0
+}
+
+func BreakBlock(side int) {
+	resultPtr := breakBlockRaw(int32(side))
+	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
+	errors.Check(int(errorCode))
 }

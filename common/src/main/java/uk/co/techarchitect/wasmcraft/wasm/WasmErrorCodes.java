@@ -39,6 +39,12 @@ public class WasmErrorCodes {
     public static final int ERR_WORLD_CHUNK_NOT_LOADED = 102;
     public static final int ERR_WORLD_PROPERTY_NOT_FOUND = 103;
     public static final int ERR_WORLD_INVALID_TAG = 104;
+    public static final int ERR_WORLD_NO_TOOL = 105;
+    public static final int ERR_WORLD_WRONG_TOOL = 106;
+    public static final int ERR_WORLD_TOOL_BROKEN = 107;
+    public static final int ERR_WORLD_INVENTORY_FULL = 108;
+    public static final int ERR_WORLD_UNBREAKABLE = 109;
+    public static final int ERR_WORLD_PROTECTED = 110;
 
     public static final int ERROR_MESSAGE_PTR = 28672;
     public static final int ERROR_MESSAGE_MAX_LEN = 1024;
@@ -68,6 +74,12 @@ public class WasmErrorCodes {
             case ERR_WORLD_CHUNK_NOT_LOADED -> "ERR_WORLD_CHUNK_NOT_LOADED";
             case ERR_WORLD_PROPERTY_NOT_FOUND -> "ERR_WORLD_PROPERTY_NOT_FOUND";
             case ERR_WORLD_INVALID_TAG -> "ERR_WORLD_INVALID_TAG";
+            case ERR_WORLD_NO_TOOL -> "ERR_WORLD_NO_TOOL";
+            case ERR_WORLD_WRONG_TOOL -> "ERR_WORLD_WRONG_TOOL";
+            case ERR_WORLD_TOOL_BROKEN -> "ERR_WORLD_TOOL_BROKEN";
+            case ERR_WORLD_INVENTORY_FULL -> "ERR_WORLD_INVENTORY_FULL";
+            case ERR_WORLD_UNBREAKABLE -> "ERR_WORLD_UNBREAKABLE";
+            case ERR_WORLD_PROTECTED -> "ERR_WORLD_PROTECTED";
             case ERR_INVALID_PARAMETER -> "ERR_INVALID_PARAMETER";
             case ERR_INVALID_STRING -> "ERR_INVALID_STRING";
             case ERR_BUFFER_TOO_SMALL -> "ERR_BUFFER_TOO_SMALL";
