@@ -1,6 +1,10 @@
 package errors
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/wasmcraft/bindings/memory"
+)
 
 const (
 	SUCCESS = 0
@@ -41,10 +45,6 @@ const (
 	ERR_WORLD_CHUNK_NOT_LOADED     = 102
 	ERR_WORLD_PROPERTY_NOT_FOUND   = 103
 	ERR_WORLD_INVALID_TAG          = 104
-
-	// Memory address for error messages
-	ERROR_MESSAGE_PTR     = 28672
-	ERROR_MESSAGE_MAX_LEN = 1024
 )
 
 type WasmError struct {
@@ -73,14 +73,14 @@ func Check(errorCode int) {
 }
 
 func GetLastError() string {
-	msgLen := *(*int32)(unsafe.Pointer(uintptr(ERROR_MESSAGE_PTR)))
-	if msgLen <= 0 || msgLen > ERROR_MESSAGE_MAX_LEN {
+	msgLen := *(*int32)(unsafe.Pointer(uintptr(memory.ERROR_MESSAGE_PTR)))
+	if msgLen <= 0 || msgLen > memory.ERROR_MESSAGE_MAX_LEN {
 		return "No error message available"
 	}
 
 	msgBytes := make([]byte, msgLen)
 	for i := int32(0); i < msgLen; i++ {
-		msgBytes[i] = *(*byte)(unsafe.Pointer(uintptr(ERROR_MESSAGE_PTR + 4 + int(i))))
+		msgBytes[i] = *(*byte)(unsafe.Pointer(uintptr(memory.ERROR_MESSAGE_PTR + 4 + int(i))))
 	}
 
 	return string(msgBytes)
@@ -91,14 +91,14 @@ func GetErrorMessage(errorCode int) string {
 		return ""
 	}
 
-	msgLen := *(*int32)(unsafe.Pointer(uintptr(ERROR_MESSAGE_PTR)))
-	if msgLen <= 0 || msgLen > ERROR_MESSAGE_MAX_LEN {
+	msgLen := *(*int32)(unsafe.Pointer(uintptr(memory.ERROR_MESSAGE_PTR)))
+	if msgLen <= 0 || msgLen > memory.ERROR_MESSAGE_MAX_LEN {
 		return getDefaultErrorMessage(errorCode)
 	}
 
 	msgBytes := make([]byte, msgLen)
 	for i := int32(0); i < msgLen; i++ {
-		msgBytes[i] = *(*byte)(unsafe.Pointer(uintptr(ERROR_MESSAGE_PTR + 4 + int(i))))
+		msgBytes[i] = *(*byte)(unsafe.Pointer(uintptr(memory.ERROR_MESSAGE_PTR + 4 + int(i))))
 	}
 
 	return string(msgBytes)

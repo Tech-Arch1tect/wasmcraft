@@ -5,19 +5,10 @@ import (
 	"unsafe"
 
 	"github.com/wasmcraft/bindings/errors"
+	"github.com/wasmcraft/bindings/memory"
 )
 
 const (
-	WORLD_RESULT_PTR            = 49152
-	WORLD_BLOCK_ID_PTR          = 53248
-	WORLD_BLOCK_ID_MAX_LEN      = 256
-	WORLD_PROPERTY_VALUE_PTR    = 53504
-	WORLD_PROPERTY_VALUE_MAX_LEN = 64
-	WORLD_TAGS_PTR              = 53568
-	WORLD_TAGS_MAX_LEN          = 2048
-	WORLD_PROPERTIES_PTR        = 55616
-	WORLD_PROPERTIES_MAX_LEN    = 2048
-
 	BOTTOM = 0
 	TOP    = 1
 	FRONT  = 2
@@ -53,7 +44,7 @@ func GetBlock(side int) string {
 
 	blockIdBytes := make([]byte, length)
 	for i := 0; i < int(length); i++ {
-		blockIdBytes[i] = *(*byte)(unsafe.Pointer(uintptr(WORLD_BLOCK_ID_PTR + uintptr(i))))
+		blockIdBytes[i] = *(*byte)(unsafe.Pointer(uintptr(memory.WORLD_BLOCK_ID_PTR + uintptr(i))))
 	}
 
 	return string(blockIdBytes)
@@ -74,7 +65,7 @@ func GetBlockProperty(side int, propertyName string) string {
 
 	valueBytes := make([]byte, length)
 	for i := 0; i < int(length); i++ {
-		valueBytes[i] = *(*byte)(unsafe.Pointer(uintptr(WORLD_PROPERTY_VALUE_PTR + uintptr(i))))
+		valueBytes[i] = *(*byte)(unsafe.Pointer(uintptr(memory.WORLD_PROPERTY_VALUE_PTR + uintptr(i))))
 	}
 
 	return string(valueBytes)
@@ -104,7 +95,7 @@ func GetBlockTags(side int) []string {
 
 	jsonBytes := make([]byte, length)
 	for i := 0; i < int(length); i++ {
-		jsonBytes[i] = *(*byte)(unsafe.Pointer(uintptr(WORLD_TAGS_PTR + uintptr(i))))
+		jsonBytes[i] = *(*byte)(unsafe.Pointer(uintptr(memory.WORLD_TAGS_PTR + uintptr(i))))
 	}
 
 	var tags []string
@@ -128,7 +119,7 @@ func GetBlockProperties(side int) map[string]string {
 
 	jsonBytes := make([]byte, length)
 	for i := 0; i < int(length); i++ {
-		jsonBytes[i] = *(*byte)(unsafe.Pointer(uintptr(WORLD_PROPERTIES_PTR + uintptr(i))))
+		jsonBytes[i] = *(*byte)(unsafe.Pointer(uintptr(memory.WORLD_PROPERTIES_PTR + uintptr(i))))
 	}
 
 	var properties map[string]string

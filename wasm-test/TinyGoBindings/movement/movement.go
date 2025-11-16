@@ -4,6 +4,7 @@ import (
 	"unsafe"
 
 	"github.com/wasmcraft/bindings/errors"
+	"github.com/wasmcraft/bindings/memory"
 )
 
 //go:wasmimport env move_forward
@@ -35,8 +36,6 @@ func getYawRaw() uint32
 
 //go:wasmimport env set_yaw
 func setYawRaw(yawDegrees uint32) uint32
-
-const MOVEMENT_RESULT_PTR = 40960
 
 type Position struct {
 	X, Y, Z float64
@@ -117,7 +116,7 @@ func Rotate(yawDegrees float32) float32 {
 	errorCode := rotateRaw(floatToUint32(yawDegrees))
 	errors.Check(int(errorCode))
 
-	actualYaw := *(*float32)(unsafe.Pointer(uintptr(MOVEMENT_RESULT_PTR + 4)))
+	actualYaw := *(*float32)(unsafe.Pointer(uintptr(memory.MOVEMENT_RESULT_PTR + 4)))
 	return actualYaw
 }
 
@@ -125,7 +124,7 @@ func GetYaw() float32 {
 	errorCode := getYawRaw()
 	errors.Check(int(errorCode))
 
-	yaw := *(*float32)(unsafe.Pointer(uintptr(MOVEMENT_RESULT_PTR + 4)))
+	yaw := *(*float32)(unsafe.Pointer(uintptr(memory.MOVEMENT_RESULT_PTR + 4)))
 	return yaw
 }
 
@@ -135,9 +134,9 @@ func SetYaw(yawDegrees float32) {
 }
 
 func readMovementResult() MovementResult {
-	x := *(*float32)(unsafe.Pointer(uintptr(MOVEMENT_RESULT_PTR + 4)))
-	y := *(*float32)(unsafe.Pointer(uintptr(MOVEMENT_RESULT_PTR + 8)))
-	z := *(*float32)(unsafe.Pointer(uintptr(MOVEMENT_RESULT_PTR + 12)))
+	x := *(*float32)(unsafe.Pointer(uintptr(memory.MOVEMENT_RESULT_PTR + 4)))
+	y := *(*float32)(unsafe.Pointer(uintptr(memory.MOVEMENT_RESULT_PTR + 8)))
+	z := *(*float32)(unsafe.Pointer(uintptr(memory.MOVEMENT_RESULT_PTR + 12)))
 
 	return MovementResult{X: x, Y: y, Z: z}
 }
