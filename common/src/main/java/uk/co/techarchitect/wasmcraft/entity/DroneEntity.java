@@ -292,20 +292,9 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
-
-        CompoundTag inventoryTag = new CompoundTag();
-        for (int i = 0; i < inventory.getContainerSize(); i++) {
-            if (!inventory.getItem(i).isEmpty()) {
-                CompoundTag itemTag = new CompoundTag();
-                inventory.getItem(i).save(level().registryAccess(), itemTag);
-                inventoryTag.put("Slot" + i, itemTag);
-            }
-        }
-        tag.put("Inventory", inventoryTag);
-
+        net.minecraft.world.ContainerHelper.saveAllItems(tag, inventory.getItems(), level().registryAccess());
         tag.putInt("SelectedSlot", this.entityData.get(SELECTED_SLOT));
         tag.putIntArray("RedstoneOutputs", redstoneOutputs);
-
         CompoundTag peripheralsTag = new CompoundTag();
         for (Map.Entry<String, UUID> entry : connectedPeripherals.entrySet()) {
             peripheralsTag.putUUID(entry.getKey(), entry.getValue());
@@ -316,26 +305,14 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
-
-        if (tag.contains("Inventory")) {
-            CompoundTag inventoryTag = tag.getCompound("Inventory");
-            for (int i = 0; i < inventory.getContainerSize(); i++) {
-                if (inventoryTag.contains("Slot" + i)) {
-                    CompoundTag itemTag = inventoryTag.getCompound("Slot" + i);
-                    inventory.setItem(i, net.minecraft.world.item.ItemStack.parseOptional(level().registryAccess(), itemTag));
-                }
-            }
-        }
-
+        net.minecraft.world.ContainerHelper.loadAllItems(tag, inventory.getItems(), level().registryAccess());
         if (tag.contains("SelectedSlot")) {
             this.entityData.set(SELECTED_SLOT, tag.getInt("SelectedSlot"));
         }
-
         if (tag.contains("RedstoneOutputs")) {
             int[] outputs = tag.getIntArray("RedstoneOutputs");
             System.arraycopy(outputs, 0, redstoneOutputs, 0, Math.min(outputs.length, 6));
         }
-
         if (tag.contains("ConnectedPeripherals")) {
             CompoundTag peripheralsTag = tag.getCompound("ConnectedPeripherals");
             connectedPeripherals.clear();
