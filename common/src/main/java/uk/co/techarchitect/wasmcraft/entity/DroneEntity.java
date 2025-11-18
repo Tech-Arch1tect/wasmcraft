@@ -16,8 +16,10 @@ import net.minecraft.world.phys.Vec3;
 import uk.co.techarchitect.wasmcraft.computer.ComputerEntityBase;
 import uk.co.techarchitect.wasmcraft.computer.command.builtin.*;
 import uk.co.techarchitect.wasmcraft.menu.InventoryProvider;
+import uk.co.techarchitect.wasmcraft.util.ContainerHelper;
 import uk.co.techarchitect.wasmcraft.wasm.WasmContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.ContextHelper;
+import uk.co.techarchitect.wasmcraft.wasm.context.ExternalInventoryContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.InventoryContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.MonitorContext;
 import uk.co.techarchitect.wasmcraft.wasm.context.MovementContext;
@@ -31,7 +33,7 @@ import java.util.UUID;
 
 import static uk.co.techarchitect.wasmcraft.wasm.WasmErrorCodes.*;
 
-public class DroneEntity extends ComputerEntityBase implements MovementContext, InventoryProvider, InventoryContext, WorldInteractionContext {
+public class DroneEntity extends ComputerEntityBase implements MovementContext, InventoryProvider, InventoryContext, WorldInteractionContext, ExternalInventoryContext {
     private static final int INVENTORY_SIZE = 27;
     private static final double PERIPHERAL_RANGE = 16.0;
     private static final EntityDataAccessor<Float> HOVER_HEIGHT = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
@@ -137,12 +139,14 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
         com.dylibso.chicory.runtime.HostFunction[] movement = MovementContext.super.toHostFunctions();
         com.dylibso.chicory.runtime.HostFunction[] inventory = InventoryContext.super.toHostFunctions();
         com.dylibso.chicory.runtime.HostFunction[] worldInteraction = WorldInteractionContext.super.toHostFunctions();
+        com.dylibso.chicory.runtime.HostFunction[] externalInventory = ExternalInventoryContext.super.toHostFunctions();
 
         com.dylibso.chicory.runtime.HostFunction[] combined = new com.dylibso.chicory.runtime.HostFunction[
-            movement.length + inventory.length + worldInteraction.length];
+            movement.length + inventory.length + worldInteraction.length + externalInventory.length];
         System.arraycopy(movement, 0, combined, 0, movement.length);
         System.arraycopy(inventory, 0, combined, movement.length, inventory.length);
         System.arraycopy(worldInteraction, 0, combined, movement.length + inventory.length, worldInteraction.length);
+        System.arraycopy(externalInventory, 0, combined, movement.length + inventory.length + worldInteraction.length, externalInventory.length);
 
         return combined;
     }
@@ -644,6 +648,256 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
             case 5 -> facing.getClockWise();
             default -> Direction.NORTH;
         };
+    }
+
+
+    @Override
+    public int detectInventory(int relativeSide, int[] outHasInventory) {
+        if (relativeSide < 0 || relativeSide > 5) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        net.minecraft.server.level.ServerLevel serverLevel = level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
+        if (serverLevel == null) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos entityPos = blockPosition();
+        Direction absoluteDir = getAbsoluteDirectionFromRelative(relativeSide);
+        BlockPos targetPos = entityPos.relative(absoluteDir);
+
+        if (!serverLevel.isLoaded(targetPos)) {
+            outHasInventory[0] = 0;
+            return SUCCESS;
+        }
+
+        net.minecraft.world.Container container = ContainerHelper.getContainerAt(serverLevel, targetPos);
+        outHasInventory[0] = container != null ? 1 : 0;
+
+        return SUCCESS;
+    }
+
+    @Override
+    public int getExternalInventorySize(int relativeSide, int[] outSize) {
+        if (relativeSide < 0 || relativeSide > 5) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        net.minecraft.server.level.ServerLevel serverLevel = level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
+        if (serverLevel == null) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos entityPos = blockPosition();
+        Direction absoluteDir = getAbsoluteDirectionFromRelative(relativeSide);
+        BlockPos targetPos = entityPos.relative(absoluteDir);
+
+        net.minecraft.world.Container container = ContainerHelper.getContainerAt(serverLevel, targetPos);
+        if (container == null) {
+            return ERR_INVENTORY_NO_CONTAINER;
+        }
+
+        outSize[0] = container.getContainerSize();
+        return SUCCESS;
+    }
+
+    @Override
+    public int getExternalItem(int relativeSide, int slot, StringBuilder outItemId, int[] outCount) {
+        if (relativeSide < 0 || relativeSide > 5) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        net.minecraft.server.level.ServerLevel serverLevel = level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
+        if (serverLevel == null) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos entityPos = blockPosition();
+        Direction absoluteDir = getAbsoluteDirectionFromRelative(relativeSide);
+        BlockPos targetPos = entityPos.relative(absoluteDir);
+
+        net.minecraft.world.Container container = ContainerHelper.getContainerAt(serverLevel, targetPos);
+        if (container == null) {
+            return ERR_INVENTORY_NO_CONTAINER;
+        }
+
+        if (slot < 0 || slot >= container.getContainerSize()) {
+            return ERR_INVENTORY_SLOT_OUT_OF_RANGE;
+        }
+
+        net.minecraft.world.item.ItemStack stack = container.getItem(slot);
+        if (stack.isEmpty()) {
+            outItemId.append("minecraft:air");
+            outCount[0] = 0;
+        } else {
+            String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+            outItemId.append(itemId);
+            outCount[0] = stack.getCount();
+        }
+
+        return SUCCESS;
+    }
+
+    @Override
+    public int pushItem(int relativeSide, int droneSlot, int externalSlot, int count, int[] outActualCount) {
+        if (relativeSide < 0 || relativeSide > 5) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        if (droneSlot < 0 || droneSlot >= INVENTORY_SIZE) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        if (count <= 0) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        net.minecraft.server.level.ServerLevel serverLevel = level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
+        if (serverLevel == null) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos entityPos = blockPosition();
+        Direction absoluteDir = getAbsoluteDirectionFromRelative(relativeSide);
+        BlockPos targetPos = entityPos.relative(absoluteDir);
+
+        net.minecraft.world.Container container = ContainerHelper.getContainerAt(serverLevel, targetPos);
+        if (container == null) {
+            return ERR_INVENTORY_NO_CONTAINER;
+        }
+
+        if (externalSlot < 0 || externalSlot >= container.getContainerSize()) {
+            return ERR_INVENTORY_SLOT_OUT_OF_RANGE;
+        }
+
+        net.minecraft.world.item.ItemStack droneStack = inventory.getItem(droneSlot);
+        if (droneStack.isEmpty()) {
+            outActualCount[0] = 0;
+            return SUCCESS;
+        }
+
+        net.minecraft.world.item.ItemStack externalStack = container.getItem(externalSlot);
+        int transferCount = Math.min(count, droneStack.getCount());
+
+        if (externalStack.isEmpty()) {
+            int maxStackSize = droneStack.getMaxStackSize();
+            transferCount = Math.min(transferCount, maxStackSize);
+
+            net.minecraft.world.item.ItemStack newStack = droneStack.copy();
+            newStack.setCount(transferCount);
+            container.setItem(externalSlot, newStack);
+
+            droneStack.shrink(transferCount);
+            if (droneStack.isEmpty()) {
+                inventory.setItem(droneSlot, net.minecraft.world.item.ItemStack.EMPTY);
+            }
+
+            outActualCount[0] = transferCount;
+            container.setChanged();
+            return SUCCESS;
+        } else if (net.minecraft.world.item.ItemStack.isSameItemSameComponents(droneStack, externalStack)) {
+            int spaceAvailable = externalStack.getMaxStackSize() - externalStack.getCount();
+            if (spaceAvailable <= 0) {
+                outActualCount[0] = 0;
+                return ERR_INVENTORY_NO_SPACE;
+            }
+
+            transferCount = Math.min(transferCount, spaceAvailable);
+            externalStack.grow(transferCount);
+            droneStack.shrink(transferCount);
+
+            if (droneStack.isEmpty()) {
+                inventory.setItem(droneSlot, net.minecraft.world.item.ItemStack.EMPTY);
+            }
+
+            outActualCount[0] = transferCount;
+            container.setChanged();
+            return SUCCESS;
+        } else {
+            outActualCount[0] = 0;
+            return ERR_INVENTORY_INCOMPATIBLE_ITEM;
+        }
+    }
+
+    @Override
+    public int pullItem(int relativeSide, int externalSlot, int droneSlot, int count, int[] outActualCount) {
+        if (relativeSide < 0 || relativeSide > 5) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        if (droneSlot < 0 || droneSlot >= INVENTORY_SIZE) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        if (count <= 0) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        net.minecraft.server.level.ServerLevel serverLevel = level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
+        if (serverLevel == null) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos entityPos = blockPosition();
+        Direction absoluteDir = getAbsoluteDirectionFromRelative(relativeSide);
+        BlockPos targetPos = entityPos.relative(absoluteDir);
+
+        net.minecraft.world.Container container = ContainerHelper.getContainerAt(serverLevel, targetPos);
+        if (container == null) {
+            return ERR_INVENTORY_NO_CONTAINER;
+        }
+
+        if (externalSlot < 0 || externalSlot >= container.getContainerSize()) {
+            return ERR_INVENTORY_SLOT_OUT_OF_RANGE;
+        }
+
+        net.minecraft.world.item.ItemStack externalStack = container.getItem(externalSlot);
+        if (externalStack.isEmpty()) {
+            outActualCount[0] = 0;
+            return SUCCESS;
+        }
+
+        net.minecraft.world.item.ItemStack droneStack = inventory.getItem(droneSlot);
+        int transferCount = Math.min(count, externalStack.getCount());
+
+        if (droneStack.isEmpty()) {
+            int maxStackSize = externalStack.getMaxStackSize();
+            transferCount = Math.min(transferCount, maxStackSize);
+
+            net.minecraft.world.item.ItemStack newStack = externalStack.copy();
+            newStack.setCount(transferCount);
+            inventory.setItem(droneSlot, newStack);
+
+            externalStack.shrink(transferCount);
+            if (externalStack.isEmpty()) {
+                container.setItem(externalSlot, net.minecraft.world.item.ItemStack.EMPTY);
+            }
+
+            outActualCount[0] = transferCount;
+            container.setChanged();
+            return SUCCESS;
+        } else if (net.minecraft.world.item.ItemStack.isSameItemSameComponents(externalStack, droneStack)) {
+            int spaceAvailable = droneStack.getMaxStackSize() - droneStack.getCount();
+            if (spaceAvailable <= 0) {
+                outActualCount[0] = 0;
+                return ERR_INVENTORY_NO_SPACE;
+            }
+
+            transferCount = Math.min(transferCount, spaceAvailable);
+            droneStack.grow(transferCount);
+            externalStack.shrink(transferCount);
+
+            if (externalStack.isEmpty()) {
+                container.setItem(externalSlot, net.minecraft.world.item.ItemStack.EMPTY);
+            }
+
+            outActualCount[0] = transferCount;
+            container.setChanged();
+            return SUCCESS;
+        } else {
+            outActualCount[0] = 0;
+            return ERR_INVENTORY_INCOMPATIBLE_ITEM;
+        }
     }
 
 }

@@ -49,6 +49,14 @@ public class WasmErrorCodes {
     public static final int ERR_WORLD_CANNOT_PLACE = 112;
     public static final int ERR_WORLD_SPACE_OCCUPIED = 113;
 
+    // External Inventory errors (120-139)
+    public static final int ERR_INVENTORY_NO_CONTAINER = 120;
+    public static final int ERR_INVENTORY_SLOT_OUT_OF_RANGE = 121;
+    public static final int ERR_INVENTORY_NO_SPACE = 122;
+    public static final int ERR_INVENTORY_INCOMPATIBLE_ITEM = 123;
+    public static final int ERR_INVENTORY_PROTECTED = 124;
+    public static final int ERR_INVENTORY_NO_ITEMS_FOUND = 125;
+
     public static final int ERROR_MESSAGE_PTR = 28672;
     public static final int ERROR_MESSAGE_MAX_LEN = 1024;
 
@@ -89,6 +97,12 @@ public class WasmErrorCodes {
             case ERR_INVALID_PARAMETER -> "ERR_INVALID_PARAMETER";
             case ERR_INVALID_STRING -> "ERR_INVALID_STRING";
             case ERR_BUFFER_TOO_SMALL -> "ERR_BUFFER_TOO_SMALL";
+            case ERR_INVENTORY_NO_CONTAINER -> "ERR_INVENTORY_NO_CONTAINER";
+            case ERR_INVENTORY_SLOT_OUT_OF_RANGE -> "ERR_INVENTORY_SLOT_OUT_OF_RANGE";
+            case ERR_INVENTORY_NO_SPACE -> "ERR_INVENTORY_NO_SPACE";
+            case ERR_INVENTORY_INCOMPATIBLE_ITEM -> "ERR_INVENTORY_INCOMPATIBLE_ITEM";
+            case ERR_INVENTORY_PROTECTED -> "ERR_INVENTORY_PROTECTED";
+            case ERR_INVENTORY_NO_ITEMS_FOUND -> "ERR_INVENTORY_NO_ITEMS_FOUND";
             default -> "UNKNOWN_ERROR_" + code;
         };
     }
