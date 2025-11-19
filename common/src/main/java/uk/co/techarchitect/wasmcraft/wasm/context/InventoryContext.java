@@ -18,6 +18,9 @@ public interface InventoryContext extends WasmContext {
     int setSelectedSlot(int slot);
     int getInventorySize(int[] outSize);
     int getItem(int slot, StringBuilder outItemId, int[] outCount);
+    int scanItems(int relativeSide, StringBuilder outJson, int[] outItemCount);
+    int suckItems(int relativeSide, int[] outItemsCollected);
+    int dropItems(int slot, int count, int[] outActualCount);
 
     @Override
     default HostFunction[] toHostFunctions() {
@@ -100,6 +103,77 @@ public interface InventoryContext extends WasmContext {
                         WasmErrorHelper.writeErrorMessage(instance, getInventoryErrorMessage(errorCode));
                         instance.memory().writeI32(INVENTORY_RESULT_PTR + 4, 0);
                         instance.memory().writeI32(INVENTORY_RESULT_PTR + 8, 0);
+                    }
+                    return new long[] { INVENTORY_RESULT_PTR };
+                }
+            ),
+            new HostFunction(
+                "env",
+                "item_scan",
+                List.of(ValueType.I32),
+                List.of(ValueType.I32),
+                (instance, args) -> {
+                    int side = (int) args[0];
+                    StringBuilder json = new StringBuilder();
+                    int[] itemCount = new int[1];
+                    int errorCode = scanItems(side, json, itemCount);
+
+                    instance.memory().writeI32(INVENTORY_RESULT_PTR, errorCode);
+
+                    if (errorCode == SUCCESS) {
+                        byte[] bytes = json.toString().getBytes();
+                        int len = Math.min(bytes.length, INVENTORY_ITEM_ID_MAX_LEN - 1);
+                        for (int i = 0; i < len; i++) {
+                            instance.memory().writeByte(INVENTORY_ITEM_ID_PTR + i, bytes[i]);
+                        }
+                        instance.memory().writeByte(INVENTORY_ITEM_ID_PTR + len, (byte) 0);
+                        instance.memory().writeI32(INVENTORY_RESULT_PTR + 4, itemCount[0]);
+                        instance.memory().writeI32(INVENTORY_RESULT_PTR + 8, len);
+                    } else {
+                        WasmErrorHelper.writeErrorMessage(instance, getInventoryErrorMessage(errorCode));
+                        instance.memory().writeI32(INVENTORY_RESULT_PTR + 4, 0);
+                        instance.memory().writeI32(INVENTORY_RESULT_PTR + 8, 0);
+                    }
+                    return new long[] { INVENTORY_RESULT_PTR };
+                }
+            ),
+            new HostFunction(
+                "env",
+                "item_suck",
+                List.of(ValueType.I32),
+                List.of(ValueType.I32),
+                (instance, args) -> {
+                    int side = (int) args[0];
+                    int[] itemsCollected = new int[1];
+                    int errorCode = suckItems(side, itemsCollected);
+
+                    instance.memory().writeI32(INVENTORY_RESULT_PTR, errorCode);
+                    if (errorCode == SUCCESS || errorCode == ERR_INVENTORY_NO_SPACE) {
+                        instance.memory().writeI32(INVENTORY_RESULT_PTR + 4, itemsCollected[0]);
+                    } else {
+                        WasmErrorHelper.writeErrorMessage(instance, getInventoryErrorMessage(errorCode));
+                        instance.memory().writeI32(INVENTORY_RESULT_PTR + 4, 0);
+                    }
+                    return new long[] { INVENTORY_RESULT_PTR };
+                }
+            ),
+            new HostFunction(
+                "env",
+                "item_drop",
+                List.of(ValueType.I32, ValueType.I32),
+                List.of(ValueType.I32),
+                (instance, args) -> {
+                    int slot = (int) args[0];
+                    int count = (int) args[1];
+                    int[] actualCount = new int[1];
+                    int errorCode = dropItems(slot, count, actualCount);
+
+                    instance.memory().writeI32(INVENTORY_RESULT_PTR, errorCode);
+                    if (errorCode == SUCCESS) {
+                        instance.memory().writeI32(INVENTORY_RESULT_PTR + 4, actualCount[0]);
+                    } else {
+                        WasmErrorHelper.writeErrorMessage(instance, getInventoryErrorMessage(errorCode));
+                        instance.memory().writeI32(INVENTORY_RESULT_PTR + 4, 0);
                     }
                     return new long[] { INVENTORY_RESULT_PTR };
                 }

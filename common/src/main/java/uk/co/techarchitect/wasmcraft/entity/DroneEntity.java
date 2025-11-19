@@ -900,4 +900,163 @@ public class DroneEntity extends ComputerEntityBase implements MovementContext, 
         }
     }
 
+    @Override
+    public int scanItems(int relativeSide, StringBuilder outJson, int[] outItemCount) {
+        if (relativeSide < 0 || relativeSide > 5) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        net.minecraft.server.level.ServerLevel serverLevel = level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
+        if (serverLevel == null) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos entityPos = blockPosition();
+        Direction absoluteDir = getAbsoluteDirectionFromRelative(relativeSide);
+        BlockPos targetPos = entityPos.relative(absoluteDir);
+
+        net.minecraft.world.phys.AABB searchBox = new net.minecraft.world.phys.AABB(targetPos);
+        java.util.List<net.minecraft.world.entity.item.ItemEntity> items = serverLevel.getEntitiesOfClass(
+            net.minecraft.world.entity.item.ItemEntity.class,
+            searchBox
+        );
+
+        outItemCount[0] = items.size();
+
+        outJson.append("[");
+        for (int i = 0; i < items.size(); i++) {
+            net.minecraft.world.entity.item.ItemEntity itemEntity = items.get(i);
+            net.minecraft.world.item.ItemStack stack = itemEntity.getItem();
+            String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+            int count = stack.getCount();
+
+            if (i > 0) outJson.append(",");
+            outJson.append("{\"id\":\"").append(itemId).append("\",\"count\":").append(count).append("}");
+        }
+        outJson.append("]");
+
+        return SUCCESS;
+    }
+
+    @Override
+    public int suckItems(int relativeSide, int[] outItemsCollected) {
+        if (relativeSide != 0 && relativeSide != 1 && relativeSide != 2) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        net.minecraft.server.level.ServerLevel serverLevel = level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
+        if (serverLevel == null) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        BlockPos entityPos = blockPosition();
+        Direction absoluteDir = getAbsoluteDirectionFromRelative(relativeSide);
+        BlockPos targetPos = entityPos.relative(absoluteDir);
+
+        net.minecraft.world.phys.AABB searchBox = new net.minecraft.world.phys.AABB(targetPos);
+        java.util.List<net.minecraft.world.entity.item.ItemEntity> items = serverLevel.getEntitiesOfClass(
+            net.minecraft.world.entity.item.ItemEntity.class,
+            searchBox
+        );
+
+        int collected = 0;
+        boolean inventoryFull = false;
+
+        for (net.minecraft.world.entity.item.ItemEntity itemEntity : items) {
+            net.minecraft.world.item.ItemStack stack = itemEntity.getItem();
+
+            int remaining = stack.getCount();
+            for (int slot = 0; slot < INVENTORY_SIZE && remaining > 0; slot++) {
+                net.minecraft.world.item.ItemStack slotStack = inventory.getItem(slot);
+
+                if (slotStack.isEmpty()) {
+                    int toAdd = Math.min(remaining, stack.getMaxStackSize());
+                    net.minecraft.world.item.ItemStack newStack = stack.copy();
+                    newStack.setCount(toAdd);
+                    inventory.setItem(slot, newStack);
+                    remaining -= toAdd;
+                } else if (net.minecraft.world.item.ItemStack.isSameItemSameComponents(stack, slotStack)) {
+                    int spaceAvailable = slotStack.getMaxStackSize() - slotStack.getCount();
+                    int toAdd = Math.min(remaining, spaceAvailable);
+                    if (toAdd > 0) {
+                        slotStack.grow(toAdd);
+                        remaining -= toAdd;
+                    }
+                }
+            }
+
+            if (remaining < stack.getCount()) {
+                collected++;
+                if (remaining == 0) {
+                    itemEntity.discard();
+                } else {
+                    stack.setCount(remaining);
+                }
+            } else {
+                inventoryFull = true;
+            }
+        }
+
+        outItemsCollected[0] = collected;
+
+        if (inventoryFull && collected == 0) {
+            return ERR_INVENTORY_NO_SPACE;
+        }
+
+        return inventoryFull ? ERR_INVENTORY_NO_SPACE : SUCCESS;
+    }
+
+    @Override
+    public int dropItems(int slot, int count, int[] outActualCount) {
+        if (slot < 0 || slot >= INVENTORY_SIZE) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        if (count <= 0) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        net.minecraft.server.level.ServerLevel serverLevel = level() instanceof net.minecraft.server.level.ServerLevel sl ? sl : null;
+        if (serverLevel == null) {
+            return ERR_INVALID_PARAMETER;
+        }
+
+        net.minecraft.world.item.ItemStack stack = inventory.getItem(slot);
+        if (stack.isEmpty()) {
+            outActualCount[0] = 0;
+            return SUCCESS;
+        }
+
+        int actualCount = Math.min(count, stack.getCount());
+
+        net.minecraft.world.item.ItemStack dropStack = stack.copy();
+        dropStack.setCount(actualCount);
+
+        Direction facing = getAbsoluteDirectionFromRelative(2);
+        Vec3 dropPos = position().add(
+            facing.getStepX() * 0.5,
+            0.2,
+            facing.getStepZ() * 0.5
+        );
+
+        net.minecraft.world.entity.item.ItemEntity itemEntity = new net.minecraft.world.entity.item.ItemEntity(
+            serverLevel,
+            dropPos.x,
+            dropPos.y,
+            dropPos.z,
+            dropStack
+        );
+
+        itemEntity.setDefaultPickUpDelay();
+        serverLevel.addFreshEntity(itemEntity);
+
+        stack.shrink(actualCount);
+        if (stack.isEmpty()) {
+            inventory.setItem(slot, net.minecraft.world.item.ItemStack.EMPTY);
+        }
+
+        outActualCount[0] = actualCount;
+        return SUCCESS;
+    }
+
 }
