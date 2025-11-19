@@ -45,6 +45,14 @@ const (
 	ERR_WORLD_CHUNK_NOT_LOADED     = 102
 	ERR_WORLD_PROPERTY_NOT_FOUND   = 103
 	ERR_WORLD_INVALID_TAG          = 104
+
+	// Inventory errors (120-139)
+	ERR_INVENTORY_NO_CONTAINER      = 120
+	ERR_INVENTORY_SLOT_OUT_OF_RANGE = 121
+	ERR_INVENTORY_NO_SPACE          = 122
+	ERR_INVENTORY_INCOMPATIBLE_ITEM = 123
+	ERR_INVENTORY_PROTECTED         = 124
+	ERR_INVENTORY_NO_ITEMS_FOUND    = 125
 )
 
 type WasmError struct {
@@ -156,6 +164,18 @@ func getDefaultErrorMessage(errorCode int) string {
 		return "Invalid string"
 	case ERR_BUFFER_TOO_SMALL:
 		return "Buffer too small"
+	case ERR_INVENTORY_NO_CONTAINER:
+		return "No container found at specified location"
+	case ERR_INVENTORY_SLOT_OUT_OF_RANGE:
+		return "Inventory slot out of range"
+	case ERR_INVENTORY_NO_SPACE:
+		return "Inventory is full"
+	case ERR_INVENTORY_INCOMPATIBLE_ITEM:
+		return "Incompatible item type"
+	case ERR_INVENTORY_PROTECTED:
+		return "Inventory is protected"
+	case ERR_INVENTORY_NO_ITEMS_FOUND:
+		return "No items found"
 	default:
 		return "Unknown error"
 	}
