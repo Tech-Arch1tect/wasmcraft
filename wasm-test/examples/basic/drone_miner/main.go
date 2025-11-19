@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/wasmcraft/bindings/sides"
 	"github.com/wasmcraft/bindings/world"
 )
 
@@ -10,7 +11,7 @@ func main() {
 	fmt.Println("=== Drone Mining Example ===")
 	fmt.Println()
 
-	blockInFront, err := world.GetBlock(world.FRONT)
+	blockInFront, err := world.GetBlock(sides.Front)
 	if err != nil {
 		panic(err)
 	}
@@ -23,7 +24,7 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("=== Checking Tool Compatibility ===")
-	canBreak, err := world.CanBreak(world.FRONT)
+	canBreak, err := world.CanBreak(sides.Front)
 	if err != nil {
 		panic(err)
 	}
@@ -39,14 +40,14 @@ func main() {
 	fmt.Println("=== Breaking Block ===")
 	fmt.Printf("Mining: %s\n", blockInFront)
 
-	err = world.BreakBlock(world.FRONT)
+	err = world.BreakBlock(sides.Front)
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println("SUCCESS! Block broken")
 
-	blockAfter, err := world.GetBlock(world.FRONT)
+	blockAfter, err := world.GetBlock(sides.Front)
 	if err != nil {
 		panic(err)
 	}

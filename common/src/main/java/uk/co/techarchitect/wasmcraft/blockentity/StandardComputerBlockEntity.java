@@ -119,8 +119,8 @@ public class StandardComputerBlockEntity extends ComputerBlockEntityBase {
             case 1 -> Direction.UP;
             case 2 -> facing;
             case 3 -> facing.getOpposite();
-            case 4 -> facing.getClockWise();
-            case 5 -> facing.getCounterClockWise();
+            case 4 -> facing.getCounterClockWise();
+            case 5 -> facing.getClockWise();
             default -> Direction.NORTH;
         };
     }

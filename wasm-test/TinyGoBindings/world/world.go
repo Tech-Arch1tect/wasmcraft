@@ -6,15 +6,7 @@ import (
 
 	"github.com/wasmcraft/bindings/errors"
 	"github.com/wasmcraft/bindings/memory"
-)
-
-const (
-	BOTTOM = 0
-	TOP    = 1
-	FRONT  = 2
-	BACK   = 3
-	LEFT   = 4
-	RIGHT  = 5
+	"github.com/wasmcraft/bindings/sides"
 )
 
 //go:wasmimport env world_get_block
@@ -41,7 +33,7 @@ func breakBlockRaw(side int32) uint32
 //go:wasmimport env world_place_block
 func placeBlockRaw(side int32) uint32
 
-func GetBlock(side int) (string, error) {
+func GetBlock(side sides.Side) (string, error) {
 	resultPtr := getBlockRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {
@@ -61,7 +53,7 @@ func GetBlock(side int) (string, error) {
 	return string(blockIdBytes), nil
 }
 
-func GetBlockProperty(side int, propertyName string) (string, error) {
+func GetBlockProperty(side sides.Side, propertyName string) (string, error) {
 	propertyNameBytes := []byte(propertyName)
 	propertyNamePtr := uintptr(unsafe.Pointer(&propertyNameBytes[0]))
 
@@ -84,7 +76,7 @@ func GetBlockProperty(side int, propertyName string) (string, error) {
 	return string(valueBytes), nil
 }
 
-func HasBlockTag(side int, tagName string) (bool, error) {
+func HasBlockTag(side sides.Side, tagName string) (bool, error) {
 	tagNameBytes := []byte(tagName)
 	tagNamePtr := uintptr(unsafe.Pointer(&tagNameBytes[0]))
 
@@ -98,7 +90,7 @@ func HasBlockTag(side int, tagName string) (bool, error) {
 	return hasTag != 0, nil
 }
 
-func GetBlockTags(side int) ([]string, error) {
+func GetBlockTags(side sides.Side) ([]string, error) {
 	resultPtr := getBlockTagsRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {
@@ -124,7 +116,7 @@ func GetBlockTags(side int) ([]string, error) {
 	return tags, nil
 }
 
-func GetBlockProperties(side int) (map[string]string, error) {
+func GetBlockProperties(side sides.Side) (map[string]string, error) {
 	resultPtr := getBlockPropertiesRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {
@@ -150,7 +142,7 @@ func GetBlockProperties(side int) (map[string]string, error) {
 	return properties, nil
 }
 
-func CanBreak(side int) (bool, error) {
+func CanBreak(side sides.Side) (bool, error) {
 	resultPtr := canBreakRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {
@@ -161,7 +153,7 @@ func CanBreak(side int) (bool, error) {
 	return canBreak != 0, nil
 }
 
-func BreakBlock(side int) error {
+func BreakBlock(side sides.Side) error {
 	resultPtr := breakBlockRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {
@@ -170,7 +162,7 @@ func BreakBlock(side int) error {
 	return nil
 }
 
-func PlaceBlock(side int) error {
+func PlaceBlock(side sides.Side) error {
 	resultPtr := placeBlockRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {

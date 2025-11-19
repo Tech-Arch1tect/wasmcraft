@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/wasmcraft/bindings/world"
+	"github.com/wasmcraft/bindings/sides"
 )
 
 func main() {
@@ -12,7 +13,7 @@ func main() {
 	fmt.Println("Analyzing block in front...")
 	fmt.Println()
 
-	blockID, err := world.GetBlock(world.FRONT)
+	blockID, err := world.GetBlock(sides.Front)
 	if err != nil {
 		panic(err)
 	}
@@ -20,7 +21,7 @@ func main() {
 	fmt.Println()
 
 	// Get all tags
-	tags, err := world.GetBlockTags(world.FRONT)
+	tags, err := world.GetBlockTags(sides.Front)
 	if err != nil {
 		panic(err)
 	}

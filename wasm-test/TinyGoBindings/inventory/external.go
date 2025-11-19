@@ -5,6 +5,7 @@ import (
 
 	"github.com/wasmcraft/bindings/errors"
 	"github.com/wasmcraft/bindings/memory"
+	"github.com/wasmcraft/bindings/sides"
 )
 
 //go:wasmimport env inventory_detect
@@ -22,7 +23,7 @@ func pushItemRaw(side int32, droneSlot int32, externalSlot int32, count int32) u
 //go:wasmimport env inventory_pull
 func pullItemRaw(side int32, externalSlot int32, droneSlot int32, count int32) uint32
 
-func DetectInventory(side int) (bool, error) {
+func DetectInventory(side sides.Side) (bool, error) {
 	resultPtr := detectInventoryRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {
@@ -33,7 +34,7 @@ func DetectInventory(side int) (bool, error) {
 	return hasInventory == 1, nil
 }
 
-func GetExternalSize(side int) (int, error) {
+func GetExternalSize(side sides.Side) (int, error) {
 	resultPtr := externalSizeRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {
@@ -44,7 +45,7 @@ func GetExternalSize(side int) (int, error) {
 	return int(size), nil
 }
 
-func GetExternalItem(side int, slot int) (Item, error) {
+func GetExternalItem(side sides.Side, slot int) (Item, error) {
 	resultPtr := externalGetItemRaw(int32(side), int32(slot))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {
@@ -71,7 +72,7 @@ func GetExternalItem(side int, slot int) (Item, error) {
 	}, nil
 }
 
-func PushItem(side int, droneSlot int, externalSlot int, count int) (int, error) {
+func PushItem(side sides.Side, droneSlot int, externalSlot int, count int) (int, error) {
 	resultPtr := pushItemRaw(int32(side), int32(droneSlot), int32(externalSlot), int32(count))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {
@@ -82,7 +83,7 @@ func PushItem(side int, droneSlot int, externalSlot int, count int) (int, error)
 	return int(actualCount), nil
 }
 
-func PullItem(side int, externalSlot int, droneSlot int, count int) (int, error) {
+func PullItem(side sides.Side, externalSlot int, droneSlot int, count int) (int, error) {
 	resultPtr := pullItemRaw(int32(side), int32(externalSlot), int32(droneSlot), int32(count))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {

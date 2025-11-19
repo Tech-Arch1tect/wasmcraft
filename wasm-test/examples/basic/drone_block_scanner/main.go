@@ -3,25 +3,26 @@ package main
 import (
 	"fmt"
 
+	"github.com/wasmcraft/bindings/sides"
 	"github.com/wasmcraft/bindings/world"
 )
 
 func main() {
 	fmt.Println("Scanning blocks around drone...")
 
-	sides := []struct {
+	scanSides := []struct {
 		name string
-		side int
+		side sides.Side
 	}{
-		{"Below", world.BOTTOM},
-		{"Above", world.TOP},
-		{"Front", world.FRONT},
-		{"Back", world.BACK},
-		{"Left", world.LEFT},
-		{"Right", world.RIGHT},
+		{"Below", sides.Bottom},
+		{"Above", sides.Top},
+		{"Front", sides.Front},
+		{"Back", sides.Back},
+		{"Left", sides.Left},
+		{"Right", sides.Right},
 	}
 
-	for _, s := range sides {
+	for _, s := range scanSides {
 		block, err := world.GetBlock(s.side)
 		if err != nil {
 			panic(err)

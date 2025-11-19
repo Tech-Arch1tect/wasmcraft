@@ -4,22 +4,16 @@ import (
 	"fmt"
 
 	"github.com/wasmcraft/bindings/redstone"
+	"github.com/wasmcraft/bindings/sides"
 )
 
 func main() {
 	fmt.Println("=== Redstone I/O Example ===\n")
 
-	sides := []redstone.Side{
-		redstone.SideBottom,
-		redstone.SideTop,
-		redstone.SideFront,
-		redstone.SideBack,
-		redstone.SideLeft,
-		redstone.SideRight,
-	}
+	allSides := sides.All()
 
 	fmt.Println("Reading redstone inputs:")
-	for _, side := range sides {
+	for _, side := range allSides {
 		power, err := redstone.GetRedstone(side)
 		if err != nil {
 			panic(err)
@@ -28,37 +22,37 @@ func main() {
 	}
 
 	fmt.Println("\nSetting redstone outputs:")
-	err := redstone.SetRedstone(redstone.SideFront, 15)
+	err := redstone.SetRedstone(sides.Front, 15)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("  FRONT  → 15 (max power)")
 
-	err = redstone.SetRedstone(redstone.SideBack, 7)
+	err = redstone.SetRedstone(sides.Back, 7)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("  BACK   →  7 (half power)")
 
-	err = redstone.SetRedstone(redstone.SideLeft, 0)
+	err = redstone.SetRedstone(sides.Left, 0)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("  LEFT   →  0 (off)")
 
-	err = redstone.SetRedstone(redstone.SideRight, 15)
+	err = redstone.SetRedstone(sides.Right, 15)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("  RIGHT  → 15 (max power)")
 
-	err = redstone.SetRedstone(redstone.SideTop, 10)
+	err = redstone.SetRedstone(sides.Top, 10)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("  TOP    → 10")
 
-	err = redstone.SetRedstone(redstone.SideBottom, 3)
+	err = redstone.SetRedstone(sides.Bottom, 3)
 	if err != nil {
 		panic(err)
 	}

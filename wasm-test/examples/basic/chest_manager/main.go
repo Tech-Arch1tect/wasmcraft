@@ -4,22 +4,14 @@ import (
 	"fmt"
 
 	"github.com/wasmcraft/bindings/inventory"
-)
-
-const (
-	BOTTOM = 0
-	TOP    = 1
-	FRONT  = 2
-	BACK   = 3
-	LEFT   = 4
-	RIGHT  = 5
+	"github.com/wasmcraft/bindings/sides"
 )
 
 func main() {
 	fmt.Println("=== Chest Manager Demo ===")
 
 	// Check if there's a chest in front
-	hasChest, err := inventory.DetectInventory(FRONT)
+	hasChest, err := inventory.DetectInventory(sides.Front)
 	if err != nil {
 		fmt.Printf("Error detecting inventory: %v\n", err)
 		return
@@ -34,7 +26,7 @@ func main() {
 	fmt.Println("Chest detected in front!")
 
 	// Get chest size
-	chestSize, err := inventory.GetExternalSize(FRONT)
+	chestSize, err := inventory.GetExternalSize(sides.Front)
 	if err != nil {
 		fmt.Printf("Error getting chest size: %v\n", err)
 		return
@@ -45,7 +37,7 @@ func main() {
 	fmt.Println("\n=== Chest Contents ===")
 	emptySlots := 0
 	for i := 0; i < chestSize; i++ {
-		item, err := inventory.GetExternalItem(FRONT, i)
+		item, err := inventory.GetExternalItem(sides.Front, i)
 		if err != nil {
 			fmt.Printf("Error reading slot %d: %v\n", i, err)
 			continue
@@ -109,7 +101,7 @@ func main() {
 		// Find first empty slot in chest
 		targetSlot := -1
 		for i := 0; i < chestSize; i++ {
-			chestItem, err := inventory.GetExternalItem(FRONT, i)
+			chestItem, err := inventory.GetExternalItem(sides.Front, i)
 			if err != nil {
 				continue
 			}
@@ -120,7 +112,7 @@ func main() {
 		}
 
 		if targetSlot >= 0 {
-			transferred, err := inventory.PushItem(FRONT, firstItem, targetSlot, 16)
+			transferred, err := inventory.PushItem(sides.Front, firstItem, targetSlot, 16)
 			if err != nil {
 				fmt.Printf("Error pushing items: %v\n", err)
 			} else {
@@ -135,7 +127,7 @@ func main() {
 	fmt.Println("\n=== Testing Pull Operation ===")
 	chestItemSlot := -1
 	for i := 0; i < chestSize; i++ {
-		item, err := inventory.GetExternalItem(FRONT, i)
+		item, err := inventory.GetExternalItem(sides.Front, i)
 		if err != nil {
 			continue
 		}
@@ -146,7 +138,7 @@ func main() {
 	}
 
 	if chestItemSlot >= 0 {
-		item, _ := inventory.GetExternalItem(FRONT, chestItemSlot)
+		item, _ := inventory.GetExternalItem(sides.Front, chestItemSlot)
 		fmt.Printf("Pulling items from chest slot %d (%dx %s)...\n", chestItemSlot, item.Count, item.ID)
 
 		// Find empty slot in drone
@@ -163,7 +155,7 @@ func main() {
 		}
 
 		if droneSlot >= 0 {
-			transferred, err := inventory.PullItem(FRONT, chestItemSlot, droneSlot, 8)
+			transferred, err := inventory.PullItem(sides.Front, chestItemSlot, droneSlot, 8)
 			if err != nil {
 				fmt.Printf("Error pulling items: %v\n", err)
 			} else {

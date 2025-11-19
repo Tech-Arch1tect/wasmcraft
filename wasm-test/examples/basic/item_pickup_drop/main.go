@@ -4,12 +4,7 @@ import (
 	"fmt"
 
 	"github.com/wasmcraft/bindings/inventory"
-)
-
-const (
-	BOTTOM = 0
-	TOP    = 1
-	FRONT  = 2
+	"github.com/wasmcraft/bindings/sides"
 )
 
 func main() {
@@ -18,7 +13,7 @@ func main() {
 
 	// Scan for items below the drone
 	fmt.Println("Scanning for items below...")
-	itemsBelow, err := inventory.Scan(BOTTOM)
+	itemsBelow, err := inventory.Scan(sides.Bottom)
 	if err != nil {
 		fmt.Printf("Error scanning items: %v\n", err)
 	} else if len(itemsBelow) == 0 {
@@ -33,7 +28,7 @@ func main() {
 
 	// Scan for items on top
 	fmt.Println("Scanning for items above...")
-	itemsAbove, err := inventory.Scan(TOP)
+	itemsAbove, err := inventory.Scan(sides.Top)
 	if err != nil {
 		fmt.Printf("Error scanning items: %v\n", err)
 	} else if len(itemsAbove) == 0 {
@@ -48,7 +43,7 @@ func main() {
 
 	// Scan for items in front
 	fmt.Println("Scanning for items in front...")
-	itemsFront, err := inventory.Scan(FRONT)
+	itemsFront, err := inventory.Scan(sides.Front)
 	if err != nil {
 		fmt.Printf("Error scanning items: %v\n", err)
 	} else if len(itemsFront) == 0 {
@@ -63,7 +58,7 @@ func main() {
 
 	// Try to suck items from below
 	fmt.Println("Attempting to pick up items from below...")
-	collected, err := inventory.Suck(BOTTOM)
+	collected, err := inventory.Suck(sides.Bottom)
 	if err != nil {
 		fmt.Printf("Warning during pickup: %v (collected %d items)\n", err, collected)
 	} else {

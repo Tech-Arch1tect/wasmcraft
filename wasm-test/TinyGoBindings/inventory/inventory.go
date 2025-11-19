@@ -5,6 +5,7 @@ import (
 
 	"github.com/wasmcraft/bindings/errors"
 	"github.com/wasmcraft/bindings/memory"
+	"github.com/wasmcraft/bindings/sides"
 )
 
 //go:wasmimport env inventory_get_selected_slot
@@ -99,7 +100,7 @@ func IsEmpty(slot int) (bool, error) {
 	return item.ID == "minecraft:air" || item.Count == 0, nil
 }
 
-func Scan(side int) ([]Item, error) {
+func Scan(side sides.Side) ([]Item, error) {
 	resultPtr := scanRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 	if err := errors.NewError(int(errorCode)); err != nil {
@@ -122,7 +123,7 @@ func Scan(side int) ([]Item, error) {
 	return items, nil
 }
 
-func Suck(side int) (int, error) {
+func Suck(side sides.Side) (int, error) {
 	resultPtr := suckRaw(int32(side))
 	errorCode := *(*int32)(unsafe.Pointer(uintptr(resultPtr)))
 

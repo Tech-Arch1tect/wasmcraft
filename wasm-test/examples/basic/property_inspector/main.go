@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/wasmcraft/bindings/sides"
 	"github.com/wasmcraft/bindings/world"
 )
 
@@ -12,19 +13,19 @@ func main() {
 	fmt.Println("Inspecting all blocks around the drone...")
 	fmt.Println()
 
-	sides := []struct {
+	scanSides := []struct {
 		name string
-		side int
+		side sides.Side
 	}{
-		{"BOTTOM", world.BOTTOM},
-		{"TOP", world.TOP},
-		{"FRONT", world.FRONT},
-		{"BACK", world.BACK},
-		{"LEFT", world.LEFT},
-		{"RIGHT", world.RIGHT},
+		{"BOTTOM", sides.Bottom},
+		{"TOP", sides.Top},
+		{"FRONT", sides.Front},
+		{"BACK", sides.Back},
+		{"LEFT", sides.Left},
+		{"RIGHT", sides.Right},
 	}
 
-	for _, s := range sides {
+	for _, s := range scanSides {
 		fmt.Printf("=== %s ===\n", s.name)
 
 		// Get block ID

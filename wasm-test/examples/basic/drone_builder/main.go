@@ -5,6 +5,7 @@ import (
 
 	"github.com/wasmcraft/bindings/inventory"
 	"github.com/wasmcraft/bindings/movement"
+	"github.com/wasmcraft/bindings/sides"
 	"github.com/wasmcraft/bindings/world"
 )
 
@@ -32,7 +33,7 @@ func main() {
 	}
 
 	for i := 0; i < 3; i++ {
-		blockBelow, err := world.GetBlock(world.BOTTOM)
+		blockBelow, err := world.GetBlock(sides.Bottom)
 		if err != nil {
 			panic(err)
 		}
@@ -42,7 +43,7 @@ func main() {
 			fmt.Printf("  Block already exists, skipping placement\n")
 		} else {
 			fmt.Printf("  Placing %s below...\n", item.ID)
-			if err := world.PlaceBlock(world.BOTTOM); err != nil {
+			if err := world.PlaceBlock(sides.Bottom); err != nil {
 				panic(err)
 			}
 

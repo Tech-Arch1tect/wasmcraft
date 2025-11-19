@@ -5,12 +5,13 @@ import (
 
 	"github.com/wasmcraft/bindings/world"
 )
+	"github.com/wasmcraft/bindings/sides"
 
 func main() {
 	fmt.Println("=== Crop Farm Monitor ===")
 	fmt.Println()
 
-	blockBelow, err := world.GetBlock(world.BOTTOM)
+	blockBelow, err := world.GetBlock(sides.Bottom)
 	if err != nil {
 		panic(err)
 	}
@@ -33,7 +34,7 @@ func main() {
 }
 
 func checkWheat() {
-	age, err := world.GetBlockProperty(world.BOTTOM, "age")
+	age, err := world.GetBlockProperty(sides.Bottom, "age")
 	if err != nil {
 		panic(err)
 	}
@@ -47,7 +48,7 @@ func checkWheat() {
 }
 
 func checkCarrots() {
-	age, err := world.GetBlockProperty(world.BOTTOM, "age")
+	age, err := world.GetBlockProperty(sides.Bottom, "age")
 	if err != nil {
 		panic(err)
 	}
@@ -61,7 +62,7 @@ func checkCarrots() {
 }
 
 func checkPotatoes() {
-	age, err := world.GetBlockProperty(world.BOTTOM, "age")
+	age, err := world.GetBlockProperty(sides.Bottom, "age")
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +76,7 @@ func checkPotatoes() {
 }
 
 func checkBeetroots() {
-	age, err := world.GetBlockProperty(world.BOTTOM, "age")
+	age, err := world.GetBlockProperty(sides.Bottom, "age")
 	if err != nil {
 		panic(err)
 	}
@@ -89,7 +90,7 @@ func checkBeetroots() {
 }
 
 func checkFarmland() {
-	moisture, err := world.GetBlockProperty(world.BOTTOM, "moisture")
+	moisture, err := world.GetBlockProperty(sides.Bottom, "moisture")
 	if err != nil {
 		panic(err)
 	}
